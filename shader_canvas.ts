@@ -8,18 +8,18 @@
  * The code is intended to be analyzed and bundled by Deno.
  */
 import "https://deno.land/x/domtype@v1.0.4/mod.ts";
-import { nop } from "./common/nop.ts";
-import { DrawCalls } from "./draw_calls/draw_calls.ts";
-import { WebGLCanvas } from "./webgl_canvas/webgl_canvas.ts";
+import { nop } from "./core/common/nop.ts";
+import { DrawCalls } from "./core/draw_calls/draw_calls.ts";
+import { WebGLCanvas } from "./core/webgl_canvas/webgl_canvas.ts";
 import type {
   InitializerFunction,
   PartsFunctions,
   ShaderPart,
   ShaderProgram,
-} from "./common/program_class.ts";
-import { NewModules } from "./new_modules/new_modules.ts";
-import { Payload } from "./new_modules/payload.ts";
-import { CanHaveParts, CreatePart } from "./new_modules/create_part.ts";
+} from "./core/common/program_class.ts";
+import { NewModules } from "./core/new_modules/new_modules.ts";
+import { Payload } from "./core/new_modules/payload.ts";
+import { CanHaveParts, CreatePart } from "./core/new_modules/create_part.ts";
 
 const dependsOn = [
   WebGLCanvas,
