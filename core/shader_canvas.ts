@@ -27,7 +27,16 @@ const dependsOn = [
   NewModules,
 ];
 
+/**
+ * Class for the `<shader-canvas>` tags.
+ * @extends ./new_modules/create_part.ts:CanHaveParts
+ */
 export class ShaderCanvas extends CanHaveParts {
+  /** To something  */
+
+  /** ShaderCanvas class is used to define a custom element with the
+   * "shader-canvas" name.
+   */
   static tag = "shader-canvas";
   static createProgram(render: InitializerFunction): ShaderProgram {
     return (new (class implements ShaderProgram {
