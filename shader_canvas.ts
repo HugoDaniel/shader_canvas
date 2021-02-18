@@ -28,11 +28,9 @@ const dependsOn = [
 
 /**
  * Class for the `<shader-canvas>` tags.
- * @extends ./new_modules/create_part.ts:CanHaveParts
+ * @extends ./core/new_modules/create_part.ts:CanHaveParts
  */
 export class ShaderCanvas extends CanHaveParts {
-  /** To something  */
-
   /** ShaderCanvas class is used to define a custom element with the
    * "shader-canvas" name.
    */
