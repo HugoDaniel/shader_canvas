@@ -1,4 +1,4 @@
-build/shader_canvas.js: core/shader_canvas.ts
+build/shader_canvas.js: shader_canvas.ts
 	mkdir -p $(dir $@)
 	deno bundle $< > $@
 
