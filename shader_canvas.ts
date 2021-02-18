@@ -7,6 +7,7 @@
  * 
  * The code is intended to be analyzed and bundled by Deno.
  */
+import "https://deno.land/x/domtype@v1.0.4/mod.ts";
 import { nop } from "./core/common/nop.ts";
 import { DrawCalls } from "./core/draw_calls/draw_calls.ts";
 import { WebGLCanvas } from "./core/webgl_canvas/webgl_canvas.ts";
@@ -27,11 +28,11 @@ const dependsOn = [
 ];
 
 /**
- * Class for the `<shader-canvas>` tags.
- * @extends ./core/new_modules/create_part.ts:CanHaveParts
+ * Class for the shader-canvas tags.
  */
 export class ShaderCanvas extends CanHaveParts {
-  /** ShaderCanvas class is used to define a custom element with the
+  /** 
+   * ShaderCanvas class is used to define a custom element with the
    * "shader-canvas" name.
    */
   static tag = "shader-canvas";
