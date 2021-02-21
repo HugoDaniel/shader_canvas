@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <link
+        href="data:image/x-icon;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQEAYAAABPYyMiAAAABmJLR0T///////8JWPfcAAAACXBIWXMAAABIAAAASABGyWs+AAAAF0lEQVRIx2NgGAWjYBSMglEwCkbBSAcACBAAAeaR9cIAAAAASUVORK5CYII="
+        rel="icon" />
+    <title>Shader Canvas Triangle Example</title>
+</head>
+
+<body>
+    <div id="trianglePoints">[-0.7, 0, 0, 0.5, 0.7, 0]</div>
+
+    <shader-canvas>
+        <webgl-canvas>
+            <draw-calls>
+                <clear-color red="0" green="0" blue="0" alpha="1"></clear-color>
+                <clear-flags mask="COLOR_BUFFER_BIT"></clear-flags>
+
+                <use-program src="simple-triangle">
+                    <draw-vao src="triangle-vao" count="3"></draw-vao>
+                </use-program>
+            </draw-calls>
+            <webgl-buffers>
+                <triangle-vertices>
+                    <buffer-data src="#trianglePoints"></buffer-data>
+                </triangle-vertices>
+            </webgl-buffers>
+            <webgl-vertex-array-objects>
+                <triangle-vao>
+                    <bind-buffer src="triangle-vertices">
+                        <vertex-attrib-pointer variable="a_position" size="2">
+                        </vertex-attrib-pointer>
+                    </bind-buffer>
+                </triangle-vao>
+            </webgl-vertex-array-objects>
+            <webgl-programs>
+                <simple-triangle>
+                    <vertex-shader>
+                        <code>
+                            #version 300 es
+                            in vec4 a_position;
+                            void main() {
+                                gl_Position = a_position;
+                            }
+                        </code>
+                    </vertex-shader>
+                    <fragment-shader>
+                        <code>
+                            #version 300 es
+                            precision highp float;
+                            out vec4 outColor;
+                
+                            void main() {
+                                outColor = vec4(1, 0, 1, 1);
+                            }
+                        </code>
+                    </fragment-shader>
+
+                </simple-triangle>
+            </webgl-programs>
+        </webgl-canvas>
+    </shader-canvas>
+
+    <script type="module">
+        import { ShaderCanvas } from "../../build/shader_canvas.js";
+        window.addEventListener("load", () => {
+            let c = document.querySelector("shader-canvas");
+            if (c instanceof ShaderCanvas) {
+                c.initialize().then(() => {
+                    c.draw()
+                })
+            }
+        })
+    </script>
+</body>
+
+</html>

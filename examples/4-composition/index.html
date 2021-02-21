@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <link
+        href="data:image/x-icon;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQEAYAAABPYyMiAAAABmJLR0T///////8JWPfcAAAACXBIWXMAAABIAAAASABGyWs+AAAAF0lEQVRIx2NgGAWjYBSMglEwCkbBSAcACBAAAeaR9cIAAAAASUVORK5CYII="
+        rel="icon" />
+    <title>Shader Canvas Triangle Example</title>
+</head>
+
+<body>
+    <shader-canvas>
+        <new-modules>
+            <buffer-2d>
+                <webgl-buffers>
+                    <vertices-2d>
+                        <buffer-data data-src="textContent"></buffer-data>
+                    </vertices-2d>
+                </webgl-buffers>
+                <webgl-vertex-array-objects>
+                    <vao-2d>
+                        <bind-buffer src="vertices-2d">
+                            <vertex-attrib-pointer data-variable="variable" size="2">
+                            </vertex-attrib-pointer>
+                        </bind-buffer>
+                    </vao-2d>
+                </webgl-vertex-array-objects>
+                <webgl-program-part>
+                    <vertex-shader>
+                        <code>
+                            in vec4 vertex2d;
+                        </code>
+                    </vertex-shader>
+                </webgl-program-part>
+                <draw-calls>
+                    <viewport-transform x="0" y="0"></viewport-transform>
+                    <clear-color red="0" green="0" blue="0" alpha="1"></clear-color>
+                    <clear-flags mask="COLOR_BUFFER_BIT"></clear-flags>
+
+                    <use-program src="program-2d">
+                        <draw-vao src="vao-2d"></draw-vao>
+                    </use-program>
+                </draw-calls>
+            </buffer-2d>
+            <vertex-code>
+                <webgl-programs>
+                    <program-2d>
+                        <buffer-2d></buffer-2d>
+                        <vertex-shader>
+                            <code data-textcontent="textContent"></code>
+                        </vertex-shader>
+                    </program-2d>
+                </webgl-programs>
+            </vertex-code>
+            <fragment-code>
+                <webgl-programs>
+                    <program-2d>
+                        <buffer-2d></buffer-2d>
+                        <fragment-shader>
+                            <code data-textcontent="textContent"></code>
+                        </fragment-shader>
+                    </program-2d>
+                </webgl-programs>
+            </fragment-code>
+        </new-modules>
+        <buffer-2d variable="vertex2d">[-0.7, 0, 0, 0.5, 0.7, 0]</buffer-2d>
+        <vertex-code>
+            #version 300 es
+            void main() {
+            gl_Position = vertex2d;
+            }
+        </vertex-code>
+        <fragment-code>
+            #version 300 es
+            precision highp float;
+            out vec4 outColor;
+
+            void main() {
+            outColor = vec4(1, 0, 1, 1);
+            }
+        </fragment-code>
+    </shader-canvas>
+    <script type="module">
+        import { ShaderCanvas } from "../../build/shader_canvas.js";
+        window.addEventListener("load", () => {
+            let c = document.querySelector("shader-canvas");
+            if (c instanceof ShaderCanvas) {
+                c.initialize().then(() => {
+                    c.draw()
+                })
+            }
+        })
+    </script>
+</body>
+
+</html>
