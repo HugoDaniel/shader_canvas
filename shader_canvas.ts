@@ -28,12 +28,61 @@ const dependsOn = [
 ];
 
 /**
- * Class for the shader-canvas tags.
+ * Class for the `<shader-canvas>` tags.
+ * 
+ * This is the main entry point of the Shader Canvas framework.
+ * 
+ * It is meant to allow multiple graphics back-ends. Abstractions can be
+ * created from these graphics back-ends through custom tags that
+ * merge and compose parts of their functionality.
+ * 
+ * The `<shader-canvas>` children tags define its behavior. These tags can be
+ * any custom modules or a supported graphics back-end with its associated
+ * functionality.
+ * 
+ * It establishes the graphics back-ends and its actions (`<webgl-canvas>`
+ * is the only supported).
+ * 
+ * It allows modules and composable parts to be imported and defined inside it.
+ * This is why it extends the [CanHaveParts](#CanHaveParts) class.
+ * 
+ * It is an HTMLElement that is created with the `ShaderCanvas.tag` string name. 
+ * 
+ * The Web Components life-cycle methods and events are all avoided and kept
+ * to their defaults. It is the responsibility of the user to call the
+ * entry-point of this class, which is the `initialize()` function.
  */
 export class ShaderCanvas extends CanHaveParts {
-  /** 
-   * ShaderCanvas class is used to define a custom element with the
-   * "shader-canvas" name.
+  /**
+   * ## `<shader-canvas>`
+   * 
+   * This is the starting tag of the graphics framework. Your app can have
+   * several of these tags.
+   * 
+   * 
+   * The allowed children are:
+   * 
+   * - `<webgl-canvas>` _WebGL low-level back-end_
+   * - `<new-modules>` _Modules tags and their content_ 
+   * - Any module tag defined inside the `<new-modules>`
+   * 
+   * ### Example
+   * 
+   * ```html
+   * <shader-canvas>
+   *  <webgl-canvas>
+   *    <!-- webgl-canvas specific tags here -->
+   *  </webgl-canvas>
+   *  <new-modules>
+   *    <triangle-stream>
+   *      <!-- some webgl-canvas parts here -->
+   *    </triangle-stream>
+   *  </new-modules>
+   * 
+   *  <triangle-stream></triangle-stream>
+   * 
+   * </shader-canvas>
+   * ``` 
    */
   static tag = "shader-canvas";
   static createProgram(render: InitializerFunction): ShaderProgram {
@@ -64,21 +113,35 @@ export class ShaderCanvas extends CanHaveParts {
     })());
   }
 
-  whenLoaded = Promise.all(
+  private whenLoaded = Promise.all(
     dependsOn.map((c) => globalThis.customElements.whenDefined(c.tag)),
   );
 
+  /**
+   * A number that sets the width of the underlying graphics backend.
+   * This number is passed to the graphics backend to set its canvas dimensions.
+   * 
+   * It defaults to the `window.innerWidth` attribute value.
+   * 
+   * A graphics backend might not follow this number exactly and use it as a
+   * basis to set the pixel width based on the underlying pixel ratio.
+   */
   get width(): number {
     return Number(this.getAttribute("width") || `${window.innerWidth}`);
   }
-  set width(value: number) {
-    this.setAttribute("width", `${value}`);
-  }
+
+  /**
+   * A number that sets the height of the underlying graphics backend.
+   * Like the width, this is passed to the graphics backend to set its
+   * canvas dimensions.
+   * 
+   * It defaults to the `window.innerHeight` attribute value.
+   * 
+   * A graphics backend might not follow this number exactly and use it as a
+   * basis to set the pixel height based on the underlying pixel ratio.
+   */
   get height(): number {
     return Number(this.getAttribute("height") || `${window.innerHeight}`);
-  }
-  set height(value: number) {
-    this.setAttribute("height", `${value}`);
   }
 
   webglCanvas: WebGLCanvas | null = null;
