@@ -16,11 +16,71 @@ const dependsOn = [
   WebGLVertexArrayObjects,
 ];
 export class WebGLCanvas extends globalThis.HTMLElement {
+  /**
+   * ## `<webgl-canvas>` {#WebGLCanvas}
+   * 
+   * This tag defines a WebGL graphics backend.
+   * Its children are the logic blocks and actions to perform.
+   * 
+   * It splits WebGL operation into 5 distinct parts:
+   * 
+   * - _Programs_ - Shader programs to use when drawing
+   * 
+   * - _Buffers_ - Raw data, define here the sources to use elsewhere
+   * - _Vertex Array Objects_ - 
+   *      Each child defines blocks that set how the data in the buffers is
+   *      going to be read.
+   * - _Textures_ - 
+   *      Image and video data sources
+   * - _Draw calls_ - 
+   *      How to draw the 4 parts above.
+   * 
+   * The allowed children are:
+   * 
+   * - `<webgl-canvas>` _WebGL low-level back-end_
+   * - `<new-modules>` _Modules tags and their content_ 
+   * - Any module tag defined inside the `<new-modules>`
+   * 
+   * **Example**
+   * 
+   * ```html
+   * <shader-canvas>
+   *  <webgl-canvas>
+   *    <webgl-textures>
+   *      <!-- WebGL Textures are defined here -->
+   *    </webgl-textures>
+   *    
+   *    <webgl-buffers>
+   *      <!-- WebGL Buffer Data is defined here -->
+   *    </webgl-buffers>
+   * 
+   *    <webgl-vertex-array-objects>
+   *      <!-- WebGL Vertex Array Objects go here -->
+   *    </webgl-vertex-array-objects>
+   * 
+   *    <webgl-programs>
+   *      <!-- Shader programs are defined here -->
+   *    </webgl-programs>
+   * 
+   *    <draw-calls>
+   *      <!-- Set the viewport and background color and draw programs here -->
+   *    </draw-calls>
+   *  </webgl-canvas>
+   * </shader-canvas>
+   * ``` 
+   * 
+   * For a usable example check the
+   * [2nd example - texture quad](https://github.com/HugoDaniel/shader_canvas/tree/main/examples/2-textured-quad)
+   * 
+   * The `<webgl-canvas>` tag is meant to be used as a child of the
+   * [`<shader-canvas>`](#ShaderCanvas) tag.
+   */
+
   static tag = "webgl-canvas";
-  whenLoaded = Promise.all(
+  private whenLoaded = Promise.all(
     dependsOn.map((c) => globalThis.customElements.whenDefined(c.tag)),
   );
-  root = this.attachShadow({ mode: "open" });
+  private root = this.attachShadow({ mode: "open" });
   private canvas: HTMLCanvasElement = globalThis.document.createElement(
     "canvas",
   );
