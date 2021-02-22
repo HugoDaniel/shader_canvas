@@ -1,6 +1,6 @@
 import type {
   InitializerFunction,
-  PartsFunctions,
+  ModulesFunctions,
 } from "../common/program_class.ts";
 import { Payload } from "../new_modules/payload.ts";
 
@@ -9,5 +9,5 @@ export interface ShaderCanvasInitializer {
   height: number;
   programInitializers: Map<string, InitializerFunction>;
   payloads: Payload[];
-  partsFunctions: Map<string, PartsFunctions>;
+  modulesFunctions: Map<string, ModulesFunctions>;
 }

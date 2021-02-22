@@ -1,7 +1,7 @@
 import { Payload } from "../new_modules/payload.ts";
 import type { WebGLCanvasContext } from "../webgl_canvas/context.ts";
 import { CreateProgram } from "../webgl_programs/create_program.ts";
-export interface PartsFunctions {
+export interface ModulesFunctions {
   onFrame?: (ctx: WebGLCanvasContext) => void;
   onUseProgram?: (
     ctx: WebGLCanvasContext,
@@ -11,7 +11,7 @@ export interface PartsFunctions {
 }
 export interface ShaderPart {
   useWith: (name: string) => void;
-  createPart: (payload: Payload) => PartsFunctions | void;
+  createPart: (payload: Payload) => ModulesFunctions | void;
 }
 export type ProgramRenderer = () => void;
 export type InitializerFunction = (

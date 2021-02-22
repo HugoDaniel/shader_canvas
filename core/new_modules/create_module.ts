@@ -1,7 +1,7 @@
 import { CanMerge } from "./can_merge.ts";
 import { Payload } from "./payload.ts";
-export class CanHaveParts extends globalThis.HTMLElement {
-  parts: string[] = [];
+export class CanHaveModules extends globalThis.HTMLElement {
+  modules: string[] = [];
   applyPayloads({
     payloads = [],
     // A payload can be applied in multiple places:
@@ -9,39 +9,39 @@ export class CanHaveParts extends globalThis.HTMLElement {
     payloadChildFilter = () => true,
     destinationRoot = this,
     destinationChooser,
-    removePart = true,
+    removeModule = true,
   }: {
     payloads?: Payload[];
     payloadChildFilter?: (child: Node) => boolean;
     destinationRoot?: HTMLElement;
-    destinationChooser?: (partChildName: string) => Element | null;
-    removePart?: boolean;
+    destinationChooser?: (moduleChildName: string) => Element | null;
+    removeModule?: boolean;
   }) {
-    for (const part of [...this.children]) {
-      if (part instanceof CreatePart) {
-        const name = part.nodeName.toLowerCase();
+    for (const child of [...this.children]) {
+      if (child instanceof CreateModule) {
+        const name = child.nodeName.toLowerCase();
         // Get the payload for this children
         const payload = payloads.find((p) => p.tagName.toLowerCase() === name);
         if (!payload) continue;
         // Add the part name to the parts array, signalizing that this
         // element uses this part.
-        this.parts.push(name);
+        this.modules.push(name);
         // Connect the attributes from the part node into its children and
         // then merge its children with the root of this element
-        part.initialize(
+        child.initialize(
           { payload, destinationRoot, destinationChooser, payloadChildFilter },
         );
-        if (removePart) {
-          this.removeChild(part);
+        if (removeModule) {
+          this.removeChild(child);
         }
       }
     }
   }
 }
 
-export class CreatePart extends globalThis.HTMLElement {
+export class CreateModule extends globalThis.HTMLElement {
   // Create the payload
-  initializePart(initializers: Map<string, (p: Payload) => void>) {
+  initializeModule(initializers: Map<string, (p: Payload) => void>) {
     const payload = new Payload(this);
     const initializerFunction = initializers.get(this.nodeName.toLowerCase());
     if (initializerFunction) {
@@ -55,7 +55,7 @@ export class CreatePart extends globalThis.HTMLElement {
       payload: Payload;
       destinationRoot: HTMLElement;
       payloadChildFilter: (child: Node) => boolean;
-      destinationChooser?: (partChildName: string) => Element | null;
+      destinationChooser?: (moduleChildName: string) => Element | null;
     },
   ) {
     const nodes = payload.connectContents(this, payloadChildFilter);
@@ -74,7 +74,7 @@ export class CreatePart extends globalThis.HTMLElement {
         }
       } else {
         console.debug(
-          `The ${payload.tagName} part child: ${node.nodeName}, cannot be merged.\n
+          `The ${payload.tagName} module child: ${node.nodeName}, cannot be merged.\n
           Is the destination an instance of "CanMerge"?`,
         );
       }

@@ -9,12 +9,37 @@ import { DrawCalls } from "../draw_calls/draw_calls.ts";
 import { nop } from "../common/nop.ts";
 import { ShaderCanvasInitializer } from "../shader_canvas/initializer.ts";
 
+/**
+ * WebGLCanvas largely ignores the common Web Components creation methods. 
+ * It is constructed and initialized at the "initialize()" function.
+ * 
+ * The "initialize()" uses the classes in this list to wait for them to be
+ * registered with a custom tag name at the global customElements registry.
+ *   
+ * This list is declared at the file scope because it is also used at the
+ * bottom of this file to declare these classes if they are not declared.
+ */
 const dependsOn = [
   WebGLPrograms,
   WebGLBuffers,
   DrawCalls,
   WebGLVertexArrayObjects,
 ];
+
+/**
+ * WebGLCanvas is a Web Component. It extends the global HTMLElement and it is
+ * intended to be registered with a custom tag name at the global customElements
+ * registry.
+ * 
+ * The tag name is defined by the static attribute "tag".
+ * 
+ * Constructor and callbacks are ignored. It is meant to be created by calling
+ * the `initialize()` method when it is appropriate within the ShaderCanvas
+ * life-cycle flow. This happens at the `ShaderCanvas.initialize()` function.
+ * 
+ * This class initializes all of the child containers. It makes an effort to
+ * try to parallelize as much as possible during initialization.
+ */
 export class WebGLCanvas extends globalThis.HTMLElement {
   /**
    * ## `<webgl-canvas>` {#WebGLCanvas}
@@ -37,9 +62,15 @@ export class WebGLCanvas extends globalThis.HTMLElement {
    * 
    * The allowed children are:
    * 
-   * - `<webgl-canvas>` _WebGL low-level back-end_
-   * - `<new-modules>` _Modules tags and their content_ 
-   * - Any module tag defined inside the `<new-modules>`
+   * - `<webgl-programs>` _WebGL shader programs container_
+   * - `<webgl-buffers>` _Buffers with raw data_ 
+   * - `<webgl-vertex-array-objects>` _Vertex Array Objects container
+   *    (here you can bundle multiple buffers and define what their raw data
+   *    is formatted and what it contains)_ 
+   * - `<webgl-textures>` _Container for image and video data_
+   * - `<draw-calls>` _List of actions to perform when rendering an image_
+   * - Any module tag that is previously defined inside the parent
+   *   `<new-modules>`
    * 
    * **Example**
    * 
@@ -75,8 +106,8 @@ export class WebGLCanvas extends globalThis.HTMLElement {
    * The `<webgl-canvas>` tag is meant to be used as a child of the
    * [`<shader-canvas>`](#ShaderCanvas) tag.
    */
-
   static tag = "webgl-canvas";
+
   private whenLoaded = Promise.all(
     dependsOn.map((c) => globalThis.customElements.whenDefined(c.tag)),
   );
@@ -164,7 +195,7 @@ export class WebGLCanvas extends globalThis.HTMLElement {
   }
   private createContext(
     gl: WebGL2RenderingContext,
-    { payloads, partsFunctions }: ShaderCanvasInitializer,
+    { payloads, modulesFunctions }: ShaderCanvasInitializer,
   ): () => (WebGLCanvasContext | null) {
     // Read children and create tags that are missing
     let buffers = this.querySelector(WebGLBuffers.tag);
@@ -208,7 +239,7 @@ export class WebGLCanvas extends globalThis.HTMLElement {
         textures,
         runtime,
         payloads,
-        partsFunctions,
+        modulesFunctions,
       };
       return () => context;
     }
@@ -263,6 +294,9 @@ export class WebGLCanvas extends globalThis.HTMLElement {
     gl: WebGL2RenderingContext,
     drawCalls: DrawCalls,
   ) {
+    // This method does nothing for now, it is mostly commented. I still
+    // have to think of a way to create the default draw calls for a simple
+    // render when they are not declared as a child of <webgl-canvas>
     /*
 
     // `root` is the parent DrawCalls element
@@ -311,6 +345,11 @@ export class WebGLCanvas extends globalThis.HTMLElement {
   }
 }
 
+// Add the WebGLCanvas to the list of dependencies and go through all of them
+// and register their tags in the Web Components customElements global registry.
+// This is run at the module level, when this module is imported. The
+// initialize() function waits for all these classes to be registered before
+// doing anything.
 [WebGLCanvas, ...dependsOn].map((component) => {
   if (!globalThis.customElements.get(component.tag)) {
     globalThis.customElements.define(component.tag, component);

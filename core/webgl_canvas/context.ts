@@ -4,7 +4,7 @@ import { WebGLVertexArrayObjects } from "../webgl_vertex_array_objects/webgl_ver
 import { WebGLTextures } from "../webgl_textures/webgl_textures.ts";
 import { WebGLCanvasRuntime } from "./runtime.ts";
 import { Payload } from "../new_modules/payload.ts";
-import { PartsFunctions } from "../common/program_class.ts";
+import { ModulesFunctions } from "../common/program_class.ts";
 
 export interface WebGLCanvasContext {
   gl: WebGL2RenderingContext;
@@ -14,5 +14,5 @@ export interface WebGLCanvasContext {
   textures: WebGLTextures;
   runtime: WebGLCanvasRuntime;
   payloads: Payload[];
-  partsFunctions: Map<string, PartsFunctions>;
+  modulesFunctions: Map<string, ModulesFunctions>;
 }
