@@ -15,13 +15,13 @@ import { DrawCalls } from "./core/draw_calls/draw_calls.ts";
 import { WebGLCanvas } from "./core/webgl_canvas/webgl_canvas.ts";
 import type {
   InitializerFunction,
-  PartsFunctions,
+  ModulesFunctions,
   ShaderPart,
   ShaderProgram,
 } from "./core/common/program_class.ts";
 import { NewModules } from "./core/new_modules/new_modules.ts";
 import { Payload } from "./core/new_modules/payload.ts";
-import { CanHaveParts, CreatePart } from "./core/new_modules/create_part.ts";
+import { CanHaveModules } from "./core/new_modules/create_module.ts";
 
 /**
  * Shader Canvas uses a very simple life-cycle for its components.
@@ -67,7 +67,7 @@ const dependsOn = [
  * to their defaults. It is the responsibility of the user to call the
  * entry-point of this class, which is the `initialize()` function.
  */
-export class ShaderCanvas extends CanHaveParts {
+export class ShaderCanvas extends CanHaveModules {
   /**
    * ## `<shader-canvas>` {#ShaderCanvas}
    * 
@@ -203,7 +203,7 @@ export class ShaderCanvas extends CanHaveParts {
    * For a usable example check the
    * [3rd example - animation](https://github.com/HugoDaniel/shader_canvas/tree/main/examples/3-animation)
    */
-  static webglModule(createModule: (p: Payload) => void | PartsFunctions) {
+  static webglModule(createModule: (p: Payload) => void | ModulesFunctions) {
     // Returns an anonymous class of ShaderPart
     // This class implements the `useWith` function.
     return (new (class implements ShaderPart {
@@ -260,7 +260,7 @@ export class ShaderCanvas extends CanHaveParts {
    * framework at their respective moments (onFrame at the start of a frame,
    * and onUseProgram when a <use-program> tag is run)
    */
-  private static modulesFunctions = new Map<string, PartsFunctions>();
+  private static modulesFunctions = new Map<string, ModulesFunctions>();
 
   /**
    * Promise that resolves when all dependencies have a tag in the
@@ -332,44 +332,71 @@ export class ShaderCanvas extends CanHaveParts {
    */
   draw: () => void = nop;
   async initialize() {
+    // Only proceed if every needed tag is registered
     await this.whenLoaded;
+
     // Check if there is a webgl-canvas child, if not, create one in the
-    // shadow root
-    // This does not call initialize or any method, it just adjusts the
-    // WebGL Canvas elements
+    // shadow root.
+    // This does not initialize or call any method, it just creates the
+    // WebGL Canvas elements for the most minimal usage if they don't exist.
     this.setWebGLCanvas();
+
+    // This style element is going to be appended to the shadow root.
     const style = globalThis.document.createElement("style");
+    // It includes the styling for the unique default slot
+    // This styles all content. The browser automatically connects all of the
+    // <shader-canvas> children to the default slot in the shadow root.
     style.textContent = `
       slot {
         width: ${this.width}px;
         height: ${this.height}px;
-        background: yellow;
       }
       `;
+    // Create the default slot for the shadow root. By default the browser
+    // connects it to all of the children of <shader-canvas>.
     const slot = globalThis.document.createElement("slot");
+    // The shadow root at this stage will also contain the graphics framework
+    // backend tag (<webgl-canvas> in this case).
     this.root.append(style, slot);
 
     // Initialization of child components starts here:
-    // Read new parts
+    // To read any new modules that might be defined, get the <new-modules>
+    // class and initialize it.
     const modules = this.querySelector(NewModules.tag);
+    // Payloads represent the intermediate state of a module. It holds the
+    // module contents and how to fill them with the information that might
+    // be provided through the attributes of the main module tag.
     let payloads: Payload[] = [];
     if (modules && modules instanceof NewModules) {
+      // Pass down the modules function initializers set through the API
+      // Each module creation function is responsible to return the module
+      // Payload (the blueprint of nodes ready to be connected to the module
+      // main tag).
+      // Passing the module init functions Map, allows the module creation
+      // function to call them and allow them to transform the payload before
+      // the module initialization is finished and returns the final payload
+      // version to be connected.
       payloads = await modules.initialize(
         ShaderCanvas.modulesInitializers,
       );
     }
-    // Parts in use directly as children of <shader-canvas>
-    const shaderCanvasParts: CreatePart[] = [];
-    for (const child of [...this.children]) {
-      if (child instanceof CreatePart) {
-        shaderCanvasParts.push(child);
-      }
-    }
-
+    // Initialize the WebGL graphics framework back-end if it is defined.
+    // (It should be by now, since it is the only one supported - the default
+    // initialization of <shader-canvas> done at `setWebGLCanvas()` above
+    // ensures that this is a very likely if to occur).
     if (this.webglCanvas) {
-      // Merge the parts before initialization
-      // this.mergeContainerParts(shaderCanvasParts, payloads, this.webglCanvas);
+      // Any eventual modules that might be used must already be initialized
+      // at this stage. This means that each module must have its corresponding
+      // Payload ready to be applied. Applying a payload is an operation that
+      // does two things:
+      // 1. Sets any attributes present on its module tag instance to its body
+      // 2. Merges this body with the parent tag of the module tag instance
+      //
+      // The `this.applyPayloads()` is a function from the CanHaveModules
+      // class extension.
       this.applyPayloads({
+        // The payloadChildFilter selects which child tags are eligible to
+        // have a payload applied in them.
         payloadChildFilter: (child) =>
           child.nodeName === "WEBGL-PROGRAMS" ||
           child.nodeName === "WEBGL-VERTEX-ARRAY-OBJECTS" ||
@@ -377,34 +404,62 @@ export class ShaderCanvas extends CanHaveParts {
           child.nodeName === "WEBGL-BUFFERS" ||
           child.nodeName === "DRAW-CALLS",
         payloads,
-        removePart: false,
+        // The removeModule flag specifies if the module tag should be removed
+        // after the payload is applied.
+        // In this case, the module tag is left where it is, this might help
+        // when debugging, leaving the trace of the modules being used that
+        // are being merged at the final DOM state.
+        removeModule: false,
         destinationRoot: this.webglCanvas,
         destinationChooser: (name) =>
           this.webglCanvas ? this.webglCanvas.querySelector(name) : null,
       });
-      // Initialize
+      // Initializing the WebGL graphics back-end consists in create a
+      // canvas with the gl context, and initialize each of the containers
+      // declared as children.
+      // The program initializers are passed so that each program can call
+      // its corresponding init function that was set with the ShaderCanvas API.
       await this.webglCanvas.initialize({
         width: this.width,
         height: this.height,
         payloads,
         programInitializers: ShaderCanvas.programInitializers,
-        partsFunctions: ShaderCanvas.modulesFunctions,
+        modulesFunctions: ShaderCanvas.modulesFunctions,
       });
+      // The ShaderCanvas draw function is just a reference to the webgl draw
+      // function. This draw function must be called in order for ShaderCanvas
+      // to draw anything. The reference passing here is just to allow other
+      // graphics frameworks to exist in the future.
       if (this.webglCanvas instanceof WebGLCanvas) {
-        this.draw = () => this.webglCanvas?.webglCanvasDraw();
+        const webglDraw = this.webglCanvas.webglCanvasDraw;
+        this.draw = webglDraw;
       } else {
         console.warn(`<${ShaderCanvas.tag}>: no webgl canvas instance found`);
       }
     } else {
+      // Avoid a hard fail (it is not good to have tags that produce exceptions
+      // and fail by stopping the execution).
+      // This else is very unlikely to happen, but still some kind of output
+      // is welcome to have in such an event.
       console.warn(`No <${WebGLCanvas.tag}> found.`);
     }
-    return Promise.resolve();
   }
+
+  /**
+   * Creates a <webgl-canvas> tag in the Shadow Root if none exist.
+   * 
+   * The default <webgl-canvas> child tags are set in it by this method.
+   */
   private setWebGLCanvas() {
+    // Check if there is a <webgl-canvas> tag defined as a child
     if (!this.querySelector(WebGLCanvas.tag)) {
+      // If not, then create a new one with the default containers in it:
       const webglCanvas = WebGLCanvas.default();
+      // Keep a reference to it in ShaderCanvas (this is used by the
+      // initialize() function)
       this.webglCanvas = webglCanvas;
       if (webglCanvas) {
+        // And place it in the Shadow Root
         this.root.append(webglCanvas);
       } else {
         console.warn(
@@ -414,8 +469,11 @@ export class ShaderCanvas extends CanHaveParts {
         );
       }
     } else {
+      // If a <webgl-canvas> tag exists as a child, get its class instance
       const webglCanvas = this.querySelector(WebGLCanvas.tag);
       if (webglCanvas instanceof WebGLCanvas) {
+        // And set a reference to it in ShaderCanvas (this is used by the
+        // initialize() function)
         this.webglCanvas = webglCanvas;
       } else {
         console.warn(
@@ -428,8 +486,15 @@ export class ShaderCanvas extends CanHaveParts {
   }
 }
 
+// Add the ShaderCanvas to the list of dependencies and go through all of them
+// and register their tags in the Web Components customElements global registry.
+// This is run at the module level, when this module is imported. The
+// initialize() function waits for all these classes to be registered before
+// doing anything.
 [ShaderCanvas, ...dependsOn].map((component) => {
   if (!globalThis.customElements.get(component.tag)) {
+    // Each class must have a static "tag" attribute defined, with the
+    // name to be registered as a new custom tag.
     globalThis.customElements.define(component.tag, component);
   }
 });
