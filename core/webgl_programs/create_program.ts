@@ -5,10 +5,10 @@ import {
   isOutputVariable,
   isSamplerVariable,
 } from "https://deno.land/x/glsl_variables@v1.0.2/parser.ts";
-import { CanHaveParts } from "../new_modules/create_part.ts";
+import { CanHaveModules } from "../new_modules/create_module.ts";
 import { Payload } from "../new_modules/payload.ts";
 
-export class CreateProgram extends CanHaveParts {
+export class CreateProgram extends CanHaveModules {
   name: string = this.tagName.toLocaleLowerCase();
   vertexShader: VertexShader | undefined;
   fragmentShader: FragmentShader | undefined;

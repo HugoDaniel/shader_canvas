@@ -47,12 +47,12 @@ export class UseProgram extends globalThis.HTMLElement {
       return;
     }
     // If it has parts, then call the onUseProgramStart and onUseProgramEnd
-    if (this.program.parts.length > 0) {
+    if (this.program.modules.length > 0) {
       const name = this.program?.name;
 
       // get the functions for each part
-      const onStart = this.program.parts.map((part) =>
-        context.partsFunctions.get(part)?.onUseProgram
+      const onStart = this.program.modules.map((module) =>
+        context.modulesFunctions.get(module)?.onUseProgram
       ).filter((f) => f !== undefined) as ((
         ctx: WebGLCanvasContext,
         program: CreateProgram,

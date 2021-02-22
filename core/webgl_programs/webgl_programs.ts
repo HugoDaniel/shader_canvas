@@ -13,22 +13,6 @@ const dependsOn = [VertexShader, FragmentShader, NewModules];
 
 export class WebGLPrograms extends ShaderCanvasContainer<CreateProgram> {
   static tag = "webgl-programs";
-  static setupFromChildren(parent: HTMLElement) {
-    const result = ShaderCanvasContainer.copyChildrenFromTarget(
-      parent,
-      this.tag,
-      "default-program",
-      WebGLPrograms,
-      (elem) =>
-        elem.tagName === "VERTEX-SHADER" || elem.tagName === "FRAGMENT-SHADER",
-    );
-
-    if (result instanceof WebGLPrograms) {
-      return result;
-    } else {
-      throw new Error("Unable to setup WebGLPrograms");
-    }
-  }
   whenLoaded = Promise.all(
     dependsOn.map((c) => globalThis.customElements.whenDefined(c.tag)),
   );

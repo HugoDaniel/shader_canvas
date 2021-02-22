@@ -108,91 +108,176 @@ export class WebGLCanvas extends globalThis.HTMLElement {
    */
   static tag = "webgl-canvas";
 
+  /**
+   * Promise that resolves when all dependencies have registered their 
+   * tag in the customElements global Web Components registry.
+   * 
+   * This is used in the async initialize() function, to ensure that its
+   * code only runs when all the tags it depends are available. 
+   */
   private whenLoaded = Promise.all(
     dependsOn.map((c) => globalThis.customElements.whenDefined(c.tag)),
   );
+  /**
+   * A helper attribute to access the Shadow Root.
+   * 
+   * The Shadow Root is used to keep the <canvas> element and set its dimensions
+   * through a <style> tag (this is useful to adjust for displays with a pixel
+   * ratio different than 1).
+   */
   private root = this.attachShadow({ mode: "open" });
+  /**
+   * A helper attribute to access the <canvas> element.
+   * The "webgl2" context is going come from this canvas element. 
+   */
   private canvas: HTMLCanvasElement = globalThis.document.createElement(
     "canvas",
   );
+  /**
+   * A helper attribute to access the WebGL2RenderingContext.
+   * 
+   * The <webgl-canvas> is a WebGL2 only graphics backend.
+   * This context comes from the <canvas> tag set at the "canvas" attribute.
+   */
   gl: WebGL2RenderingContext | undefined;
+  /**
+   * Much like the canvas have its "getContext" function, this WebGLCanvas
+   * class also has its context that is returned after calling "getContext". 
+   * 
+   * This function returns a context for this class that wraps the
+   * WebGL2RenderingContext and each container class defined as children.
+   * 
+   * A context is useful to provide quick access to these classes and objects
+   * without having to traverse the DOM in order to get them.
+   */
   getContext: () => WebGLCanvasContext | null = () => null;
+  /**
+   * The draw function. This function renders a frame, it defaults to a no op.
+   * 
+   * This function is created by the <draw-calls> associated class. It is the
+   * responsibility of the user to declare the proper draw calls as children
+   * of the <draw-calls> tag. These draw calls children, together with the
+   * info from the webgl container children, are used during initialization to
+   * create a function to set here in this attribute.
+   */
   webglCanvasDraw: () => void = nop;
 
-  initialize(init: ShaderCanvasInitializer) {
+  /**
+   * This function is responsible to create the <canvas> element, get its
+   * "webgl2" context and run through each <webgl-canvas> children calling
+   * its initialization functions with the gl context from that canvas.
+   * 
+   * 
+   */
+  async initialize(init: ShaderCanvasInitializer) {
     const {
       width,
       height,
       programInitializers,
     } = init;
-    return this.whenLoaded.then(async () => {
-      const dpr = window.devicePixelRatio;
-      this.canvas.width = width * dpr;
-      this.canvas.height = height * dpr;
-      this.canvas.style.transform = `scale(${1 / dpr})`;
-      this.canvas.style.transformOrigin = `top left`;
+    // Only proceed if every needed tag is registered
+    await this.whenLoaded;
+    // Read the device pixel ratio, useful to adjust the width and height of
+    // the canvas.
+    const dpr = window.devicePixelRatio;
+    // The technique used here is to create a bigger canvas than the dimensions
+    // passed, and then adjust it to the intended size with CSS style.
+    this.canvas.width = width * dpr;
+    this.canvas.height = height * dpr;
 
-      const style = globalThis.document.createElement("style");
-      style.textContent = `
-      slot {
-        display: none;
-      }
-      width: ${width}px;
-      height: ${height}px;
-      `;
+    // Use a CSS transform: scale to reduce the <canvas> element size to the
+    // one passed as argument.
+    const style = globalThis.document.createElement("style");
+    style.textContent = `
+    canvas {
+      transform: scale(${1 / dpr});
+      transform-origin: top left;
+    }`;
+    // Encapsulate the canvas and its style, these are not intended to be
+    // visible in the DOM inspection. They are to be used internally by this
+    // class and its children.
+    this.root.append(
+      style,
+      this.canvas,
+    );
 
-      this.root.append(
-        style,
-        this.canvas,
-      );
-      this.gl = this.initializeGL();
+    // Set the WebGL2 context to the "gl" attribute.
+    this.gl = this.initializeGL();
 
-      // Create Context object, it holds the nodes of the containers that
-      // <webgl-canvas> needs to properly run
-      // When the containers are not found, this function also creates the
-      // minimal child layout needed for proper <webgl-canvas> functioning
-      this.getContext = this.createContext(this.gl, init);
-      // Initialize the context
-      const ctx = this.getContext();
-      if (!ctx) {
-        console.warn("<webgl-canvas>: unable to create runtime context");
-        return;
-      }
-      await ctx.programs.initialize(ctx);
-      await ctx.buffers.initialize(ctx);
-      await ctx.textures.initialize(ctx);
-      await ctx.vaos.initialize(ctx);
-      // The context is now only partially initialized, to finish initialization
-      // it is needed to call the custom initialize functions for each program
-      // if they exist
-      const renderers = await ctx.programs.callInitializers(
-        this.gl,
-        ctx,
-        programInitializers,
-      );
+    // Create the context object, it holds the nodes of the containers that
+    // <webgl-canvas> needs to have in order to properly run.
+    // When the containers are not found, this function also creates the
+    // minimal child layout needed for proper <webgl-canvas> functioning
+    this.getContext = this.createContext(this.gl, init);
+    // Immediately call this function and use its context for the rest of the
+    // initialization code. This allows for an early return if no context
+    // is available to work with.
+    const ctx = this.getContext();
+    if (!ctx) {
+      console.warn("<webgl-canvas>: unable to create runtime context");
+      return;
+    }
+    // Initialize each of the possible containers. The context is being passed
+    // to allow each container to reference or obtain data from the other
+    // already defined containers.
+    await ctx.programs.initialize(ctx); // Compile, link and get locations
+    await ctx.buffers.initialize(ctx); // Fetch data from sources into the GPU
+    await ctx.textures.initialize(ctx); // Fetch images and put them in the GPU
+    await ctx.vaos.initialize(ctx); // Call the vertexAttribPointer's
 
-      // Check if there is a draw calls tag
-      let drawCallsRoot = this.querySelector(DrawCalls.tag);
-      if (!drawCallsRoot) {
-        drawCallsRoot = globalThis.document.createElement(DrawCalls.tag);
-        this.append(drawCallsRoot);
-      }
+    // The context is now only partially initialized, to finish initialization
+    // the custom initialize functions for each program need to be executed
+    // if they exist.
+    const renderers = await ctx.programs.callInitializers(
+      this.gl,
+      ctx,
+      programInitializers,
+    );
+
+    // Prepare the render function.
+    // Check if there is a draw calls tag, and initialize it.
+    let drawCallsRoot = this.querySelector(DrawCalls.tag);
+    if (!drawCallsRoot) {
+      // If there is no draw calls, create one as a child of this element.
+      drawCallsRoot = globalThis.document.createElement(DrawCalls.tag);
+      this.append(drawCallsRoot);
+    }
+    if (drawCallsRoot instanceof DrawCalls) {
+      // Place the default draw calls if they are not set
+      this.createDefaultDrawCalls(this.gl, drawCallsRoot);
+      // Builds the draw function and sets a render loop if one is declared:
+      await drawCallsRoot.initialize(this.gl, ctx, renderers);
+      // The frame update function is just a reference to its equivalent of
+      // the draw calls container, which at this stage (after initialization)
+      // should be created and ready to daw a frame.
       if (drawCallsRoot instanceof DrawCalls) {
-        // Place the default draw calls if they are not set
-        this.createDefaultDrawCalls(this.gl, drawCallsRoot);
-        await drawCallsRoot.initialize(this.gl, ctx, renderers).then(() => {
-          // Create the update function
-          if (drawCallsRoot instanceof DrawCalls) {
-            this.webglCanvasDraw = drawCallsRoot.drawCalls;
-          }
-        });
-      } else {
-        console.warn(
-          `<webgl-canvas>: unable to initialize the <${DrawCalls.tag}>`,
-        );
+        this.webglCanvasDraw = drawCallsRoot.drawCalls;
       }
-    });
+    } else {
+      console.warn(
+        `<webgl-canvas>: unable to initialize the <${DrawCalls.tag}>`,
+      );
+    }
   }
+  /**
+   * Creates the WebGLCanvas context.
+   * 
+   * It returns a function that returns the WebGLCanvas context.
+   * 
+   * This context is an object that holds the class for each of the child
+   * containers in the <webgl-canvas> tag. It also references the modules
+   * Payloads and the functions associated to each module from the API.
+   * 
+   * The final context also contains a Runtime object. This object contains
+   * runtime instances of temporary objects and references.
+   * It starts with a set of predefined HTML5 Canvas elements, useful for
+   * functions that need to deal with ImageData. 
+   * 
+   * It looks for each container tag, gets their instance, and puts it in the
+   * object to be returned. A warning is printed if a container tag is not
+   * found. In this case, an empty container is placed as a child. This allows
+   * other containers to reference it, or modules to merge their Payload to it.
+   */
   private createContext(
     gl: WebGL2RenderingContext,
     { payloads, modulesFunctions }: ShaderCanvasInitializer,
@@ -228,7 +313,7 @@ export class WebGLCanvas extends globalThis.HTMLElement {
       textures instanceof WebGLTextures && programs instanceof WebGLPrograms &&
       vaos instanceof WebGLVertexArrayObjects && buffers instanceof WebGLBuffers
     ) {
-      // Create Runtime object
+      // Create the Runtime object
       const runtime = this.createRuntime();
 
       const context = {
@@ -243,9 +328,30 @@ export class WebGLCanvas extends globalThis.HTMLElement {
       };
       return () => context;
     }
-    console.warn("<webgl-canvas>: Unable to create context function");
+    console.warn(
+"<webgl-canvas>: Unable to create context function, \
+    are the containers instances available and their tags registered?",
+    );
+    // return null if there is at least one container does not have its
+    // intended instance.
     return () => null;
   }
+
+  /**
+   * Create the runtime object.
+   * 
+   * The runtime object represents the temporary references and nodes that
+   * might be useful for the execution of the <webgl-canvas> backend.
+   * 
+   * This includes a few HTML5 <canvas> elements and their contexts, already
+   * set to a predefined resolution. This might be useful if you are dealing
+   * with ImageData or texture drawing/downscalling in the CPU side.
+   * 
+   * To create the canvas elements with a specific resolution and retrieve their
+   * contexts, a node "webgl-canvas-runtime" is appended to the Shadow Root.
+   * This is the parent node of the canvas elements in the Runtime object, it
+   * should not be visible.
+   */
   private createRuntime(): WebGLCanvasRuntime {
     const canvas512 = globalThis.document.createElement("canvas");
     const canvas1024 = globalThis.document.createElement("canvas");
@@ -270,7 +376,10 @@ export class WebGLCanvas extends globalThis.HTMLElement {
       offscreenCanvas512 === null || offscreenCanvas1024 === null ||
       offscreenCanvas2048 === null
     ) {
-      throw new Error("Unable to create offscreen canvas context");
+      throw new Error(
+"WebGL Canvas Runtime: Unable to create offscreen \
+      canvas context",
+      );
     }
 
     return ({
@@ -279,6 +388,10 @@ export class WebGLCanvas extends globalThis.HTMLElement {
       offscreenCanvas2048,
     });
   }
+  /**
+   * Get a "webgl2" context from the canvas element set at "this.canvas".
+   * This will throw an exception if there is no such context returned. 
+   */
   private initializeGL() {
     const ctx = this.canvas.getContext("webgl2");
     if (
@@ -290,6 +403,7 @@ export class WebGLCanvas extends globalThis.HTMLElement {
     }
     return ctx;
   }
+
   private createDefaultDrawCalls(
     gl: WebGL2RenderingContext,
     drawCalls: DrawCalls,
@@ -328,16 +442,33 @@ export class WebGLCanvas extends globalThis.HTMLElement {
     }
     */
   }
+
+  /**
+   * This function creates a <webgl-canvas> tag and fills it with the 4 empty
+   * containers expected to be found in it:
+   * - <webgl-programs>
+   * - <webgl-buffers>
+   * - <webgl-vertex-array-objects>
+   * - <webgl-textures>
+   *  
+   * It does not append this into any real DOM or Shadow DOM. The created
+   * element is returned and expected to be used where appropriate. 
+   */
   static default() {
+    // Start by creating the <webgl-canvas> parent tag:
     const parent = globalThis.document.createElement(WebGLCanvas.tag);
+    // Create its 4 containers elements:
     const programs = globalThis.document.createElement(WebGLPrograms.tag);
     const buffers = globalThis.document.createElement(WebGLBuffers.tag);
+    const textures = globalThis.document.createElement(WebGLTextures.tag);
     const vaos = globalThis.document.createElement(
       WebGLVertexArrayObjects.tag,
     );
-    const textures = globalThis.document.createElement(WebGLTextures.tag);
 
+    // And append them to the parent:
     parent.append(textures, vaos, buffers, programs);
+    // The WebGLCanvas class must be registered as a WebComponent,
+    // or else null is returned.
     if (parent instanceof WebGLCanvas) {
       return parent;
     }
