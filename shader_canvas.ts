@@ -78,7 +78,7 @@ export class ShaderCanvas extends CanHaveModules {
    * The allowed children are:
    * 
    * - [`<webgl-canvas>`](#WebGLCanvas) _WebGL low-level back-end_
-   * - `<new-modules>` _Modules tags and their content_ 
+   * - [`<new-modules>`](#NewModules) _Modules tags and their content_ 
    * - Any module tag defined inside the `<new-modules>`
    * 
    * **Example**
@@ -89,11 +89,20 @@ export class ShaderCanvas extends CanHaveModules {
    *    <!-- webgl-canvas specific tags here -->
    *  </webgl-canvas>
    *  <new-modules>
+   *    <!-- create your modules here, e.g. -->
    *    <triangle-stream>
-   *      <!-- some webgl-canvas parts here -->
+   *      <!--
+   *      this module is called "triangle-stream" inside it you
+   *      can put some webgl-canvas parts, that will be merged
+   *      whenever this tag is used.
+   *      -->
    *    </triangle-stream>
    *  </new-modules>
    * 
+   *  <!--
+   *    here the module is being used, its webgl-canvas parts
+   *    will be merged here during initialization
+   *  --> 
    *  <triangle-stream></triangle-stream>
    * 
    * </shader-canvas>
@@ -266,7 +275,7 @@ export class ShaderCanvas extends CanHaveModules {
    * Promise that resolves when all dependencies have a tag in the
    * customElements global Web Components registry.
    * 
-   * This is used in the async initializer() function, the main function and 
+   * This is used in the async initialize() function, the main function and 
    * entry point of this class, to ensure that its code only runs when all the
    * tags it depends are available. 
    */
@@ -347,11 +356,21 @@ export class ShaderCanvas extends CanHaveModules {
     // This styles all content. The browser automatically connects all of the
     // <shader-canvas> children to the default slot in the shadow root.
     style.textContent = `
-      slot {
+      webgl-canvas,
+      slot,
+      ::slotted(*),
+      * {
         width: ${this.width}px;
         height: ${this.height}px;
+        overflow: hidden;
       }
-      `;
+      ::slotted(*) {
+        display: none;
+      }
+      webgl-canvas {
+        display: block;
+      }
+    `;
     // Create the default slot for the shadow root. By default the browser
     // connects it to all of the children of <shader-canvas>.
     const slot = globalThis.document.createElement("slot");
