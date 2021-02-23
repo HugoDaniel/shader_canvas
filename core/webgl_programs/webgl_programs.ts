@@ -88,7 +88,7 @@ export class WebGLPrograms extends ShaderCanvasContainer<CreateProgram> {
    * This is used in the async initialize() function, to ensure that its
    * code only runs when all the tags it depends are available. 
    */
-  whenLoaded = Promise.all(
+  private whenLoaded = Promise.all(
     dependsOn.map((c) => globalThis.customElements.whenDefined(c.tag)),
   );
 

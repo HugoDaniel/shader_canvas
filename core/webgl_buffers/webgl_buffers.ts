@@ -84,7 +84,7 @@ export class WebGLBuffers extends ShaderCanvasContainer<CreateBuffer> {
    * This is used in the async initialize() function, to ensure that the
    * code only runs when all the tags it depends are available. 
    */
-  whenLoaded = Promise.all(
+  private whenLoaded = Promise.all(
     dependsOn.map((c) => globalThis.customElements.whenDefined(c.tag)),
   );
 
@@ -113,7 +113,7 @@ export class WebGLBuffers extends ShaderCanvasContainer<CreateBuffer> {
       console.error(
         `<webgl-buffers>: Could not get bind function for ${bufferName}`,
       );
-      // Return a nop that outputs the 0 buffer id.
+      // Return a nop that outputs 0 instead of the buffer target id.
       return () => {
         nop();
         return 0;

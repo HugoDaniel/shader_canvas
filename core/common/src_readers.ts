@@ -24,6 +24,13 @@ export function readQueryElement(src: string): Promise<number[]> {
     }
   });
 }
+
+/**
+ * This function is a "reader". If the src string is a JSON array, then it
+ * returns a promise that resolves to the parsed contents.
+ * 
+ * Otherwise the src string is rejected.
+ */
 export function readSrcAsJSON(src: string): Promise<number[]> {
   return new Promise((resolve, reject) => {
     const firstChar = src[0];
@@ -45,6 +52,11 @@ export function readSrcAsJSON(src: string): Promise<number[]> {
   });
 }
 
+/**
+ * This functions parses a string and checks if it is a valid
+ * [querySelector](https://developer.mozilla.org/en-US/docs/Web/API/Document/querySelector).
+ * input.
+ */
 function isQuery(query: string): boolean {
   const firstChar = query[0];
   const secondChar = query[1];
@@ -56,27 +68,9 @@ function isQuery(query: string): boolean {
   );
 }
 
-function getImageData(
-  img: HTMLImageElement,
-  ctx: CanvasRenderingContext2D | undefined | null,
-) {
-  const w = img.width;
-  const h = img.height;
-  // render the image to canvas
-  // which is the only way to get an ImageData/Uint8Array
-  // for the GPU
-  if (ctx) {
-    ctx.clearRect(0, 0, w, h);
-    ctx.drawImage(img, 0, 0, w, h);
-    const d = ctx.getImageData(0, 0, h, h);
-    // perform a copy of the ImageData into a Uint8Array
-    // this is because Apple limits the total ImageData available size
-    // so I circumvent by transforming it into a Uint8Array :P
-    return (new Uint8Array(d.data.copyWithin(0, 0)));
-  }
-  return null;
-}
-
+/**
+ * These types can be used as image data sources for textures.
+ */
 export type ImageDataInput =
   | HTMLImageElement
   | HTMLCanvasElement
@@ -84,6 +78,7 @@ export type ImageDataInput =
   | ImageBitmap
   | ImageData;
 
+/** Type guard to make sure that an element can be used as image data input */
 function isImageDataInput(elem: unknown): elem is ImageDataInput {
   return (
     (elem instanceof globalThis.HTMLImageElement) ||
@@ -94,6 +89,17 @@ function isImageDataInput(elem: unknown): elem is ImageDataInput {
   );
 }
 
+/**
+ * This function tries to read the image from an element specified by the
+ * `src` query string.
+ * 
+ * It returns a promise that resolves with the image data if the element is
+ * any of the supported image data inputs.
+ * 
+ * If the element is an HTMLImageElement it resolves after it is loaded or
+ * completed, otherwise the element is returned as is (WebGL2 supports these
+ * elements as image data sources).
+ */
 export function readImageDataFromQuery(src: string): Promise<ImageDataInput> {
   return new Promise((resolve, reject) => {
     if (isQuery(src)) {
@@ -124,6 +130,12 @@ export function readImageDataFromQuery(src: string): Promise<ImageDataInput> {
   });
 }
 
+/**
+ * For a given src string, it tries a set of data readers for it.
+ * This allows a src string to support multiple target representations.
+ * 
+ * An example of a reader is, for instance, the JSON parser.
+ */
 export async function trySrcReaders<T>(src: string, readers: SrcReader<T>[]) {
   // run through the readers array
   for (let i = 0; i < readers.length; i++) {
@@ -137,7 +149,7 @@ export async function trySrcReaders<T>(src: string, readers: SrcReader<T>[]) {
       continue; // Move to the next reader and see if it resolves
     }
   }
-  // No reader has
+  // No reader can resolve this src string
   console.error(`Cannot find a reader for this source: ${src}`);
   return [];
 }

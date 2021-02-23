@@ -71,7 +71,7 @@ export class CreateBuffer extends globalThis.HTMLElement {
    */
   bindBuffer: (() => number) = () => {
     nop();
-    return 0;
+    return 0; // Return the "0" target, this does not match any buffer target id
   };
 
   /**
