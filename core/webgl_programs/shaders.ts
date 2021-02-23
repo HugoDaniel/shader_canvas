@@ -18,9 +18,13 @@ class ShaderCode extends globalThis.HTMLElement {
   // deno-lint-ignore no-explicit-any
   status: any;
 
+  /**
+   * Shader Code initialization consists in:
+   * - Read the `textContent` of the child `<code>` tag.
+   * - Parse its variables.
+   */
   initialize() {
     // TODO: Setup a Mutation Observer to re-compile things when they change
-
     this.setupCode();
   }
   /**

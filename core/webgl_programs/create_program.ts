@@ -10,7 +10,7 @@ import { Payload } from "../new_modules/payload.ts";
 
 /**
  * The CreateProgram class is intended to be used to create custom tags
- * for the children of the WebGLProgram container.
+ * for the children of the WebGLPrograms container.
  * 
  * Every Shader Canvas program is an instance of this class. It provides
  * methods to load, compile, link and validate a WebGL Program. It also has

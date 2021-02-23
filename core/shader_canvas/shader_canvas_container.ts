@@ -34,9 +34,13 @@ import { CanMerge } from "../new_modules/can_merge.ts";
  * here).
  */
 export class ShaderCanvasContainer<T> extends CanMerge {
-  // This Map associates each new tag child with its T class instance.
-  // This is helpful when accessing or referencing within a container function.
-  // It avoids querying the DOM.
+  /**
+   * This Map associates each new tag child name with its T class instance.
+   * 
+   * This is helpful when accessing or referencing within a container function.
+   * 
+   * It avoids querying the DOM.
+   **/
   content: Map<string, T> = new Map();
   /**
    * Read all children and create custom elements with their name.
