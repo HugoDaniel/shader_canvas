@@ -11,13 +11,14 @@ import { ShaderCanvasInitializer } from "../shader_canvas/initializer.ts";
 
 /**
  * WebGLCanvas largely ignores the common Web Components creation methods. 
- * It is constructed and initialized at the "initialize()" function.
+ * It is constructed and initialized by the "initialize()" function.
  * 
  * The "initialize()" uses the classes in this list to wait for them to be
  * registered with a custom tag name at the global customElements registry.
  *   
  * This list is declared at the file scope because it is also used at the
- * bottom of this file to declare these classes if they are not declared.
+ * bottom of this file to register the tag names for them if they are not
+ * registered.
  */
 const dependsOn = [
   WebGLPrograms,
@@ -62,15 +63,16 @@ export class WebGLCanvas extends globalThis.HTMLElement {
    * 
    * The allowed children are:
    * 
-   * - `<webgl-programs>` _WebGL shader programs container_
-   * - `<webgl-buffers>` _Buffers with raw data_ 
-   * - `<webgl-vertex-array-objects>` _Vertex Array Objects container
+   * - [`<webgl-programs>`](#WebGLPrograms) _WebGL shader programs container_
+   * - [`<webgl-buffers>`](#WebGLBuffers) _Buffers with raw data_ 
+   * - [`<webgl-vertex-array-objects>`](#WebGLVertexArrayObjects) 
+   *    _Vertex Array Objects container
    *    (here you can bundle multiple buffers and define what their raw data
    *    is formatted and what it contains)_ 
-   * - `<webgl-textures>` _Container for image and video data_
-   * - `<draw-calls>` _List of actions to perform when rendering an image_
+   * - [`<webgl-textures>`](#WebGLTextures) _Container for image and video data_
+   * - [`<draw-calls>`](#DrawCalls) _List of actions to perform when rendering an image_
    * - Any module tag that is previously defined inside the parent
-   *   `<new-modules>`
+   *   [`<new-modules>`](#NewModules)
    * 
    * **Example**
    * 
@@ -163,11 +165,13 @@ export class WebGLCanvas extends globalThis.HTMLElement {
   webglCanvasDraw: () => void = nop;
 
   /**
-   * This function is responsible to create the <canvas> element, get its
-   * "webgl2" context and run through each <webgl-canvas> children calling
-   * its initialization functions with the gl context from that canvas.
+   * This function creates the <canvas> element and get its "webgl2" context.
    * 
+   * It calls the initialization function of each child with this "webgl2"
+   * context.
    * 
+   * After the children initialization it calls any program init function that
+   * might have been set through the `ShaderCanvas.createProgram` API. 
    */
   async initialize(init: ShaderCanvasInitializer) {
     const {

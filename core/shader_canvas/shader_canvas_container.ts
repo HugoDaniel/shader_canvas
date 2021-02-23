@@ -39,9 +39,13 @@ export class ShaderCanvasContainer<T> extends CanMerge {
   // It avoids querying the DOM.
   content: Map<string, T> = new Map();
   /**
-   * Read all children
-   * For each child, create the element with the name it has, as an anonymous
-   * class of CreateProgram
+   * Read all children and create custom elements with their name.
+   * 
+   * For each child, creates the element with the name it has, as an anonymous
+   * class of the CustomElementConstructor provided as argument.
+   * 
+   * This function is intended to be called by the container `initialize()`
+   * function.
    **/
   createContentComponentsWith = (
     parent: CustomElementConstructor,

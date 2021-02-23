@@ -45,10 +45,13 @@ export class ActiveTexture extends globalThis.HTMLElement {
     // Add the `activeTexture` to the draw calls array
     if (texture?.texture) {
       // Find the uniform texture order in the program
-      const index = program.textures.findIndex((v) => v.name === variable);
+      const index = program.allTextureVariables().findIndex((v) =>
+        v.name === variable
+      );
       if (index < 0) {
         console.warn(
-          `<active-texture>: unable to find the variable ${variable} in ${program.name}`,
+          `<active-texture>: unable to find the variable ${variable} in \
+          ${program.name}`,
         );
         return;
       }
@@ -56,12 +59,14 @@ export class ActiveTexture extends globalThis.HTMLElement {
       const location = program.uniformLocations.get(variable);
       if (!location) {
         console.warn(
-          `<active-texture>: unable to find the location for variable ${variable} in ${program.name}`,
+          `<active-texture>: unable to find the location for variable \
+          ${variable} in ${program.name}`,
         );
         return;
       }
       this.drawCalls.push(() => {
-        // set the uniform with the index (which corresponds to the texture unit)
+        // set the uniform with the index (which corresponds to the texture
+        // unit)
         gl.uniform1i(location, index);
         gl.activeTexture(gl.TEXTURE0 + index);
         texture.bindTexture();
