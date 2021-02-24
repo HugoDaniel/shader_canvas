@@ -1,12 +1,12 @@
 import { nop } from "../common/nop.ts";
 import { WebGLVertexArrayObjects } from "./webgl_vertex_array_objects.ts";
 
+const dependsOn = [WebGLVertexArrayObjects];
+
 export class BindVertexArray extends globalThis.HTMLElement {
   static tag = "bind-vertex-array";
-  whenLoaded = Promise.all(
-    [
-      globalThis.customElements.whenDefined("webgl-vertex-array-objects"),
-    ],
+  private whenLoaded = Promise.all(
+    dependsOn.map((c) => globalThis.customElements.whenDefined(c.tag)),
   );
 
   get src(): string {
@@ -16,6 +16,7 @@ export class BindVertexArray extends globalThis.HTMLElement {
     }
     return result || "";
   }
+
   bindVAO: (() => void) = nop;
   async initialize(
     gl: WebGL2RenderingContext,
@@ -25,3 +26,9 @@ export class BindVertexArray extends globalThis.HTMLElement {
     this.bindVAO = vaos.bindFunctionFor(this.src);
   }
 }
+
+[BindVertexArray, ...dependsOn].map((component) => {
+  if (!globalThis.customElements.get(component.tag)) {
+    globalThis.customElements.define(component.tag, component);
+  }
+});

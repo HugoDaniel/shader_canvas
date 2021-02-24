@@ -1,5 +1,13 @@
 import { ShaderLocations } from "../common/locations.ts";
 import { nop } from "../common/nop.ts";
+
+/** 
+ * This type is used to define the possible values that can go in the
+ * <vertex-attrib-pointer> `type` attribute.
+ * 
+ * They follow the possible values for the `gl.vertexAttribPointer`
+ * [target argument](https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/vertexAttribPointer#parameters).
+ */
 type VertexAttribType =
   | "BYTE"
   | "SHORT"
@@ -8,7 +16,7 @@ type VertexAttribType =
   | "FLOAT"
   | "HALF_FLOAT";
 
-function readVertexAttribType(value: string): VertexAttribType {
+function readVertexAttribType(value: string | null): VertexAttribType {
   switch (value) {
     case "BYTE":
     case "SHORT":
@@ -22,6 +30,7 @@ function readVertexAttribType(value: string): VertexAttribType {
   }
 }
 
+/** A type guard to check if a given value is a VertexAttribPointer class */
 export function isVertexAttribPointer(
   value: unknown,
 ): value is VertexAttribPointer {
@@ -29,30 +38,75 @@ export function isVertexAttribPointer(
     (value as unknown as { tagName: null | string })?.tagName?.toUpperCase() ===
       "VERTEX-ATTRIB-POINTER");
 }
+
+/**
+ * The VertexAttribPointer class is a Web Component.
+ * 
+ * It provides the equivalent functionality of the `gl.vertexAttribPointer()`
+ * function.
+ */
 export class VertexAttribPointer extends globalThis.HTMLElement {
+  /**
+   * ## `<vertex-attrib-pointer>` {#VertexAttribPointer}
+   * 
+   * This tag is the equivalent of the [WebGL `vertexAttribPointer() function`](https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/vertexAttribPointer).
+   * 
+   * It specifies the layout of its parent buffer. It is used to map buffer
+   * areas to variables.
+   * 
+   * No children are allowed in `<vertex-attrib-pointer>`.
+   * 
+   * For a usable example check the
+   * [3rd example - animation](https://github.com/HugoDaniel/shader_canvas/tree/main/examples/3-animation)
+   * 
+   * The `<vertex-attrib-pointer>` tag is meant to be used as a child of the
+   * [`<bind-buffer>`](#BindBuffer) tag.
+   */
   static tag = "vertex-attrib-pointer";
+
+  /**
+   * This function is a wrapper to the `gl.vertexAttribPointer()`, it is
+   * created to avoid having arguments (arguments are read from the this
+   * element attributes during initialization and set in the closure when this
+   * function is created).
+   * 
+   * It defaults to a no-op until it is created in `initialize()`.
+   */
   vertexAttribPointer: () => void = nop;
+  /**
+   * Keeps track of the GLSL location for the variable that is being pointed by
+   * this Vertex Attrib Pointer.
+   */
   location: number | undefined;
+  /**
+   * Reads the variable for this pointer and its GLSL location. Creates the
+   * `this.vertexAttribPointer` function and calls it right away.
+   */
   initialize(
     gl: WebGL2RenderingContext,
     locations: ShaderLocations = { attributes: new Map() },
   ) {
     const variable = this.variable;
+    // Early return if there is no variable to point at.
     if (variable === "") return null;
     const location = locations.attributes.get(variable);
+    // Print a warning if no valid location could be found for the variable.
+    // This can happen if, for example, there is a typo in the variable name.
     if (location === undefined || location < 0) {
       console.warn(
         `<vertex-attrib-pointer> Unable to find variable ${variable} location`,
       );
       return;
     }
+    // Read and setup the attributes from this tag
     this.location = location;
-    // create the function to call and call it
     const size = this.size;
     const type = gl[this.type];
     const normalized = this.normalized;
     const stride = this.stride;
     const offset = this.offset;
+    // Create the wrapper for the `gl.vertexAttribPointer`. Its closure will
+    // have the arguments available to be passed to the WebGL counterpart.
     this.vertexAttribPointer = () => {
       gl.enableVertexAttribArray(location);
 
@@ -65,10 +119,12 @@ export class VertexAttribPointer extends globalThis.HTMLElement {
         offset,
       );
     };
+    // Call it right away.
     this.vertexAttribPointer();
   }
   /**
-   * A string (GLenum) specifying the data type of each component in the array
+   * A string specifying the name of the variable that this data is going to be
+   * placed at.
    */
   get variable(): string {
     return this.getAttribute("variable") || "";
@@ -103,10 +159,21 @@ export class VertexAttribPointer extends globalThis.HTMLElement {
   }
 
   /**
-   * A string (GLenum) specifying the data type of each component in the array
+   * A string (GLenum) specifying the data type of each component in the array.
+   * 
+   * This attribute allows the same values that the `type` parameter of the
+   * [`gl.vertexAttribPointer()`](https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/vertexAttribPointer#parameters)
+   * function does: 
+   * 
+   * - `"BYTE"`
+   * - `"SHORT"`
+   * - `"UNSIGNED_BYTE"`
+   * - `"UNSIGNED_SHORT"`
+   * - `"FLOAT"` _(default)_
+   * - `"HALF_FLOAT"`
    */
   get type(): VertexAttribType {
-    return readVertexAttribType(this.getAttribute("type") || "FLOAT");
+    return readVertexAttribType(this.getAttribute("type"));
   }
   set type(val: VertexAttribType) {
     if (val) {
@@ -134,7 +201,7 @@ export class VertexAttribPointer extends globalThis.HTMLElement {
   }
 
   /**
-   * A GLboolean specifying whether integer data values should be normalized
+   * A boolean specifying whether integer data values should be normalized
    * into a certain range when being cast to a float.
    *   - For types gl.BYTE and gl.SHORT, normalizes the values to [-1, 1] if
    *     true.

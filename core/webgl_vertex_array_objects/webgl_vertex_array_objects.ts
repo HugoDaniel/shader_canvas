@@ -121,7 +121,8 @@ export class WebGLVertexArrayObjects
     const vao = this.content.get(vaoName);
     if (!vao) {
       console.error(
-        `<webgl-vertex-array-objects>: Could not get bind function for ${vaoName}`,
+        `<webgl-vertex-array-objects>: Could not get bind function for \
+        ${vaoName}`,
       );
       return nop;
     }
@@ -135,16 +136,22 @@ export class WebGLVertexArrayObjects
    * a `CreateVertexArray` instance.
    * 
    * After all vertex array objects have been created as Web Components,
-   * they get initialized, and their bind function created.
+   * they get initialized, which creates their bind function.
    */
   async initialize({
     gl,
     buffers,
     programs: { locations },
   }: WebGLCanvasContext) {
+    // Only proceed if every needed tag is registered
     await this.whenLoaded;
+    // This is a function from the ShaderCanvasContainer class extension.
+    // It runs through all of the child tags and registers them as a new unique
+    // Web Component with the CreateVertexArray class.
     this.createContentComponentsWith(CreateVertexArray);
 
+    // Buffers and program vertex attribute locations must be available for
+    // a Vertex Array Object to be initialized.
     if (!buffers) {
       console.warn(
         "<webgl-vertex-array-objects>: unable to initialize without buffers",
@@ -158,16 +165,24 @@ export class WebGLVertexArrayObjects
       return;
     }
     for (const vao of this.content.values()) {
+      // Initializing a Vertex Array Object (VAO) is about giving meaning to
+      // buffer data and specify how it should be sent to the programs in
+      // each vertex.
+      // This process involves looking at the buffers being bound and
+      // read their vertex attrib pointer tags.
       await vao.initialize(gl, buffers, locations);
     }
   }
 }
 
+// Add the WebGLVertexArrayObjects to the list of dependencies and go through
+// all of them and register their tags in the Web Components customElements
+// global registry.
+// This is run at the module level, when this module is imported. The
+// initialize() function waits for all these classes to be registered before
+// doing anything.
 [WebGLVertexArrayObjects, ...dependsOn].map((component) => {
   if (!globalThis.customElements.get(component.tag)) {
-    globalThis.customElements.define(
-      component.tag,
-      component,
-    );
+    globalThis.customElements.define(component.tag, component);
   }
 });

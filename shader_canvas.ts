@@ -37,9 +37,9 @@ import { CanHaveModules } from "./core/new_modules/create_module.ts";
  * bottom of this file to declare these classes if they are not declared.
  */
 const dependsOn = [
+  NewModules,
   WebGLCanvas,
   DrawCalls,
-  NewModules,
 ];
 
 /**
@@ -79,7 +79,7 @@ export class ShaderCanvas extends CanHaveModules {
    * 
    * - [`<webgl-canvas>`](#WebGLCanvas) _WebGL low-level back-end_
    * - [`<new-modules>`](#NewModules) _Modules tags and their content_ 
-   * - Any module tag defined inside the `<new-modules>`
+   * - Any module tag defined inside the [`<new-modules>`](#NewModules)
    * 
    * **Example**
    * 
@@ -356,19 +356,14 @@ export class ShaderCanvas extends CanHaveModules {
     // This styles all content. The browser automatically connects all of the
     // <shader-canvas> children to the default slot in the shadow root.
     style.textContent = `
-      webgl-canvas,
-      slot,
-      ::slotted(*),
-      * {
+      ::slotted(*) {
+        display: block;
         width: ${this.width}px;
         height: ${this.height}px;
         overflow: hidden;
       }
-      ::slotted(*) {
+      ::slotted(new-modules) {
         display: none;
-      }
-      webgl-canvas {
-        display: block;
       }
     `;
     // Create the default slot for the shadow root. By default the browser

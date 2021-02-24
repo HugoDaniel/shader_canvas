@@ -173,7 +173,7 @@ export class BufferData extends globalThis.HTMLElement {
     return readBufferDataTarget(this.getAttribute("target"));
   }
   /**
-   * The buffer data "size" attribute that sets the size in bytes of the WebGL 
+   * The buffer data `size` attribute sets the size in bytes of the WebGL 
    * buffer object's data store.
    * 
    * This attribute is a number.
