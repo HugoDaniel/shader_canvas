@@ -41,10 +41,6 @@ function readBufferDataTarget(target: string | null): BufferDataTarget {
     case "PIXEL_UNPACK_BUFFER":
       return target;
     default:
-      console.warn(
-"Unable to read a valid buffer-data target: %s \
-          defaulting to ARRAY_BUFFER",
-      );
       return "ARRAY_BUFFER";
   }
 }
@@ -87,10 +83,6 @@ function readBufferDataUsage(usage: string): BufferDataUsage {
     case "STREAM_COPY":
       return usage;
     default:
-      console.warn(
-"Unable to read a valid buffer-data usage: %s \
-                          defaulting to STATIC_DRAW",
-      );
       return "STATIC_DRAW";
   }
 }

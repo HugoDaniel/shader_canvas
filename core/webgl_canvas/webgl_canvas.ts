@@ -196,13 +196,25 @@ export class WebGLCanvas extends globalThis.HTMLElement {
     canvas {
       transform: scale(${1 / dpr});
       transform-origin: top left;
-    }`;
+    }
+    .canvasWrapper {
+      width: ${width}px;
+      height: ${height}px;
+      overflow: hidden;
+    }
+    ::slotted(*) {
+      display: none;
+    }
+    `;
+    const wrapper = globalThis.document.createElement("div");
+    wrapper.className = "canvasWrapper";
+    wrapper.appendChild(this.canvas);
     // Encapsulate the canvas and its style, these are not intended to be
     // visible in the DOM inspection. They are to be used internally by this
     // class and its children.
     this.root.append(
       style,
-      this.canvas,
+      wrapper,
     );
 
     // Set the WebGL2 context to the "gl" attribute.
