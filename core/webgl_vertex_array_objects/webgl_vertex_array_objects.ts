@@ -56,8 +56,8 @@ export class WebGLVertexArrayObjects
    * possible to select a buffer and read its data as 2d float vertices, or,
    * if you want, select that same buffer and read its data as 3d vertices.
    * 
-   * During initialization the buffers listed as children of this tag get 
-   * loaded and their runtime functions created to be used by the draw calls
+   * During initialization the vertex array objects listed as children of this
+   * tag get their runtime functions created to be used by the draw calls
    * either at its initialization or during the render loop.
    * 
    * The allowed children are:

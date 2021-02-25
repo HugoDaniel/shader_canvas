@@ -1,10 +1,7 @@
 import { WebGLCanvasContext } from "../webgl_canvas/context.ts";
 import { CreateProgram } from "../webgl_programs/create_program.ts";
 import { CreateTexture } from "../webgl_textures/create_texture.ts";
-import {
-  TexParameterF,
-  TexParameterI,
-} from "../webgl_textures/tex_parameter.ts";
+import { TexParameterF, TexParameterI } from "./tex_parameter.ts";
 
 const dependsOn = [TexParameterI, TexParameterF];
 

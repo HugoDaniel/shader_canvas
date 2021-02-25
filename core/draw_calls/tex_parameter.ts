@@ -1,10 +1,32 @@
-import type { TextureTarget } from "./texture_target_type.ts";
-import { readTextureTarget } from "./texture_target_type.ts";
+import type { TextureTarget } from "../webgl_textures/texture_target_type.ts";
+import { readTextureTarget } from "../webgl_textures/texture_target_type.ts";
 import { nop } from "../common/nop.ts";
 
+/**
+ * This class defines the common functionality between the TexParameter* 
+ * classes.
+ * 
+ * It is a Web Component, and it is intended to be extended from.
+ * 
+ * It is the counterpart to the WebGL `gl.texParameter[fi]()` functions.
+ */
 class TexParameter extends globalThis.HTMLElement {
+  /**
+   * Keep both possible versions of parameters, the child classes will chose
+   * which one to use.
+   * 
+   * They default to a no-op and get created in the `initialize()` function.
+   */
   texParameterf: () => void = nop;
   texParameteri: () => void = nop;
+
+  /**
+   * Initialization of this class is where the functions `texParameter[fi]`
+   * are created.
+   * 
+   * The tag parameters are read and a closure is made to allow these functions
+   * to be called without arguments.
+   */
   initialize(
     gl: WebGL2RenderingContext,
   ) {
@@ -20,12 +42,6 @@ class TexParameter extends globalThis.HTMLElement {
     this.texParameteri = () => gl.texParameteri(target, pname, param as number);
   }
 
-  /**
-   * A string (GLenum) specifying the binding point (target)
-   */
-  get target(): TextureTarget {
-    return readTextureTarget(this.getAttribute("target") || "TEXTURE_2D");
-  }
   set target(name: TextureTarget) {
     if (name) {
       this.setAttribute("target", readTextureTarget(name));
@@ -34,9 +50,6 @@ class TexParameter extends globalThis.HTMLElement {
     }
   }
 
-  get pname(): TextureParameterName {
-    return readParameterName(this.getAttribute("pname") || "TEXTURE_WRAP_S");
-  }
   set pname(name: TextureParameterName) {
     if (name) {
       this.setAttribute("pname", readParameterName(name));
@@ -46,9 +59,6 @@ class TexParameter extends globalThis.HTMLElement {
     }
   }
 
-  get param(): TextureParameter | number {
-    return readParameter(this.pname, this.getAttribute("param"));
-  }
   set param(value: TextureParameter | number) {
     if (typeof value === "string" || value >= 0) {
       this.setAttribute(
@@ -116,10 +126,14 @@ type TextureParameter =
   | "NONE"
   | "COMPARE_REF_TO_TEXTURE";
 
+/**
+ * Type guard that checks if a string is a Mag filter TextureParameter.
+ */
 function isValidMagFilter(value: string): value is TextureParameter {
   return value === "LINEAR" || value === "NEAREST";
 }
 
+/** Type guard that checks if a string is a Min filter TextureParameter */
 function isValidMinFilter(value: string): value is TextureParameter {
   return value === "LINEAR" || value === "NEAREST" ||
     value === "NEAREST_MIPMAP_NEAREST" ||
@@ -128,6 +142,9 @@ function isValidMinFilter(value: string): value is TextureParameter {
     value === "LINEAR_MIPMAP_LINEAR";
 }
 
+/** 
+ * Type guard that checks if a string is a valid texture wrap TextureParameter
+ */
 function isValidWrap(value: string): value is TextureParameter {
   return (
     value === "REPEAT" ||
@@ -136,6 +153,10 @@ function isValidWrap(value: string): value is TextureParameter {
   );
 }
 
+/**
+ * Type guard that checks if a string is a valid comparison function
+ * TextureParameter.
+ */
 function isValidCompareFunc(value: string): value is TextureParameter {
   return (
     value === "LEQUAL" ||
@@ -149,12 +170,19 @@ function isValidCompareFunc(value: string): value is TextureParameter {
   );
 }
 
+/**
+ * Type guard that checks if a string is a valid texture comparison mode.
+ */
 function isValidCompareMode(value: string): value is TextureParameter {
   return (
     value === "NONE" || value === "COMPARE_REF_TO_TEXTURE"
   );
 }
 
+/**
+ * Reading a parameter and validating it needs some logic added because some
+ * values are only accepted with certain TextureParameterName's.
+ */
 function readParameter(
   name: TextureParameterName,
   value: string | null,
@@ -200,14 +228,85 @@ function readParameter(
 }
 
 export class TexParameterI extends TexParameter {
+  /**
+   * ## `<tex-parameter-i>` {#TexParameterI}
+   * 
+   * This tag is the equivalent of the [WebGL `texParameteri() function`](https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/texParameter).
+   * 
+   * It sets the parameters for the current active texture set by the
+   * [`<active-texture>`](#ActiveTexture) tag.
+   * 
+   * No children is allowed in `<tex-parameter-i>`.
+   * 
+   * The `<tex-parameter-i>` tag is meant to be used as a child of the
+   * [`<active-texture>`](#ActiveTexture) custom named tag.
+   */
   static tag = "tex-parameter-i";
+  /**
+   * Returns the gl function for this tag. Not intended to be used as a 
+   * tag attribute.
+   */
   get texParameter() {
     return this.texParameteri;
   }
+
+  /**
+   * A string (GLenum) specifying the binding point (target)
+   */
+  get target(): TextureTarget {
+    return readTextureTarget(this.getAttribute("target") || "TEXTURE_2D");
+  }
+  /**
+   * The parameter name. Can be any valid `TextureParameterName`.
+   */
+  get pname(): TextureParameterName {
+    return readParameterName(this.getAttribute("pname") || "TEXTURE_WRAP_S");
+  }
+  /**
+   * The parameter value. Can be any valid `TextureParameter`.
+   */
+  get param(): TextureParameter | number {
+    return readParameter(this.pname, this.getAttribute("param"));
+  }
 }
 export class TexParameterF extends TexParameter {
+  /**
+   * ## `<tex-parameter-f>` {#TexParameterF}
+   * 
+   * This tag is the equivalent of the [WebGL `texParameteri() function`](https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/texParameter).
+   * 
+   * It sets the parameters for the current active texture set by the
+   * [`<active-texture>`](#ActiveTexture) tag.
+   * 
+   * No children is allowed in `<tex-parameter-f>`.
+   * 
+   * The `<tex-parameter-f>` tag is meant to be used as a child of the
+   * [`<active-texture>`](#ActiveTexture) custom named tag.
+   */
   static tag = "tex-parameter-f";
+  /**
+   * Returns the gl function for this tag. Not intended to be used as a 
+   * tag attribute.
+   */
   get texParameter() {
     return this.texParameterf;
+  }
+  /**
+   * A string (GLenum) specifying the binding point (target)
+   */
+  get target(): TextureTarget {
+    return readTextureTarget(this.getAttribute("target") || "TEXTURE_2D");
+  }
+  /**
+   * The parameter name. Can be any valid `TextureParameterName`.
+   */
+  get pname(): TextureParameterName {
+    return readParameterName(this.getAttribute("pname") || "TEXTURE_WRAP_S");
+  }
+  /**
+   * The parameter value. Can be any valid `TextureParameter`.
+   */
+  get param(): TextureParameter | number {
+    return readParameter(this.pname, this.getAttribute("param"));
   }
 }
