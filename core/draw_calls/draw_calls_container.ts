@@ -13,6 +13,12 @@ import { ProgramRenderer } from "../common/program_class.ts";
 import { CullFace } from "./cull_face.ts";
 import { CanMerge } from "../new_modules/can_merge.ts";
 
+/**
+ * The draw calls container is responsible to create the render function
+ * for that it needs to know what kind of children it might have and how to
+ * work with them. These are listed here and are intended to be used like in
+ * the other Web Components of Shader Canvas.
+ */
 export const dependencies = [
   ClearColor,
   BlendFunc,
@@ -26,9 +32,34 @@ export const dependencies = [
   DrawVAO,
 ];
 
+/**
+ * Creates the render function.
+ * 
+ * Runs through the child nodes, check their instance, creates the appropriate 
+ * closure function and places it in an array that gets traversed when
+ * rendering.
+ * 
+ * This class is intended to be extended from by the <draw-calls> component.
+ * It is a Web Component, and can be merged if defined partially by a module.
+ */
 export class DrawCallsContainer extends CanMerge {
+  /** The array of drawing functions to traverse at runtime */
   drawFunctions: (() => void)[] = [];
+  /**
+   * The function to call when rendering. This function defaults to a no-op and
+   * gets created in the `buildDrawFunction()`.
+   * 
+   * It is a simple loop through all the closures listed in `drawFunctions`.
+   **/
   drawCalls: () => void = nop;
+  /**
+   * Reads the DOM and for every child node it initializes it and creates 
+   * its corresponding drawing call to be put in the `drawFunctions` array of
+   * functions.
+   * 
+   * In creates the `drawCalls` function that calls all the functions in the
+   * `drawFunctions` array.
+   */
   async buildDrawFunction(
     gl: WebGL2RenderingContext,
     context: WebGLCanvasContext,

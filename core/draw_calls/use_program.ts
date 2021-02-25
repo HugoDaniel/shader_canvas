@@ -7,7 +7,7 @@ import { DrawVAO } from "./draw_vao.ts";
 const dependsOn = [DrawVAO];
 export class UseProgram extends globalThis.HTMLElement {
   static tag = "use-program";
-  whenLoaded = Promise.all(
+  private whenLoaded = Promise.all(
     dependsOn.map((c) => globalThis.customElements.whenDefined(c.tag)),
   );
 
