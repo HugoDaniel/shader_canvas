@@ -236,7 +236,7 @@ export class TexParameterI extends TexParameter {
    * It sets the parameters for the current active texture set by the
    * [`<active-texture>`](#ActiveTexture) tag.
    * 
-   * No children is allowed in `<tex-parameter-i>`.
+   * No child tags allowed in `<tex-parameter-i>`.
    * 
    * The `<tex-parameter-i>` tag is meant to be used as a child of the
    * [`<active-texture>`](#ActiveTexture) custom named tag.
@@ -278,7 +278,7 @@ export class TexParameterF extends TexParameter {
    * It sets the parameters for the current active texture set by the
    * [`<active-texture>`](#ActiveTexture) tag.
    * 
-   * No children is allowed in `<tex-parameter-f>`.
+   * No child tags allowed in `<tex-parameter-f>`.
    * 
    * The `<tex-parameter-f>` tag is meant to be used as a child of the
    * [`<active-texture>`](#ActiveTexture) custom named tag.

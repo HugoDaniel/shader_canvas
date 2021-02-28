@@ -95,7 +95,7 @@ export class TexImage2D extends globalThis.HTMLElement {
    * It sets the 2D image data to be used in the texture being declared and how
    * it should be processed.
    * 
-   * No children is allowed in `<tex-image-2d>`.
+   * No child tags allowed in `<tex-image-2d>`.
    * 
    * **Example**
    * 

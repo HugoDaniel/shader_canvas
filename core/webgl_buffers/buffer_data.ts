@@ -113,7 +113,7 @@ export class BufferData extends globalThis.HTMLElement {
    * 
    * The data loaded is bounded to the buffer it has as parent. 
    * 
-   * No children is allowed in `<buffer-data>`.
+   * No child tags allowed in `<buffer-data>`.
    * 
    * **Example**
    * 

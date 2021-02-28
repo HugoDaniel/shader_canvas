@@ -66,7 +66,7 @@ type DocType =
 function buildSrc(location: { filename: string, line: number }) {
   const srcBase = "https://github.com/HugoDaniel/shader_canvas/blob/main/"
   const fname = location.filename.split("/");
-  const src = srcBase + fname.slice(fname.indexOf("shader_canvas" + 1)).join("/")
+  const src = srcBase + fname.slice(fname.indexOf("shader_canvas") + 1).join("/")
   return `${src}#L${location.line}`;
 }
 
@@ -101,7 +101,7 @@ function classToMd(c: DocClass | undefined) {
   let attributesMarkdown = "";
   if (attributes.length > 0) {
     attributesMarkdown =
-`### Attributes
+`### Attributes of \`<${c.name}>\`
 
 ${attributes.map(a =>
 `#### _[${a.name}](${a.src})_
@@ -112,13 +112,33 @@ ${a.jsDoc}`).join("\n")}
   return (
 `${c.jsDoc}
 
-_[[View Source]](${c.src})_
+<em><small><a href="${c.src}">View Source</a></small></em>
 
 ${attributesMarkdown}
+
+<hr>
 `
 );
 }
 
+
+function byClassName(a: DocClass | undefined, b: DocClass | undefined) {
+  if (a && b) {
+    if (a.name > b.name) {
+      return 1;
+    }
+    if (a.name < b.name) {
+      return -1;
+    }
+    return 0;
+  } else if(a) {
+      return -1;
+  } else if(b) {
+      return 1;
+  } else {
+    return 0;
+  }
+}
 
 async function generate() {
   let all: any[] = [];
@@ -139,18 +159,11 @@ async function generate() {
   console.log(
     all.map(docToClass)
        .filter(d => d && d.jsDoc !== null)
+       .sort(byClassName)
        .map(classToMd)
        .filter(a => a !== null || a !== undefined)
        .join("\n")
   )
 }
-
-/*
-.then((a) => {
-  if (a && a.length > 0)  {
-    console.log(classToMd(docToClass(a[0])))
-  }
-})
-*/
 
 generate();
