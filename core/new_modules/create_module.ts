@@ -1,7 +1,66 @@
 import { CanMerge } from "./can_merge.ts";
 import { Payload } from "./payload.ts";
+
+/**
+ * The CreateModule class is intended to be used to create module tags.
+ * 
+ * Every module in use by the Shader Canvas is an instance of this class.
+ * 
+ * It has two initialize functions, the `initializeModule()` is the first
+ * one to run, it is called by the `<new-modules>` to get this module payload.
+ * 
+ * The `initialize()` function applies 
+ * 
+ */
 export class CreateModule extends globalThis.HTMLElement {
-  // Create the payload
+  /**
+   * ## `<{{module-name}}>` {#CreateModule}
+   * 
+   * You chose the tag name for your modules when declaring them.
+   * 
+   * If it happens inside the `<new-modules>` tag, then the module tag name is
+   * used to declare the DOM blueprint that is intended to be merged when the
+   * module tag is used elsewhere.
+   * 
+   * If it happens outside the `<new-modules>` tag, then the module tag name is
+   * used to merge its DOM blueprint (the child nodes it contains in the
+   * `<new-modules>`) at the location it is at.
+   * 
+   * The allowed children of a module are:
+   * 
+   * - All Shader Canvas tags
+   * - [`<webgl-program-part>`](#WebGLProgramPart) _Specifies a part of
+   *   a [`<{{program-name}}>`](#CreateProgram) to be merged if this module is
+   *   used inside a program._
+   * 
+   * **Example**
+   * 
+   * ```html
+   * <shader-canvas>
+   *   <new-modules>
+   *     <my-crazy-module>
+   *       <!--
+   *        Create your Shader Canvas partial code here.
+   *       -->
+   *     </my-crazy-module>
+   *   </new-modules>
+   * 
+   *   <!-- merge the module code here -->
+   *   <my-crazy-module></my-crazy-module>
+   * </shader-canvas>
+   * ```
+   * 
+   * For a usable example check the
+   * [4th example - composition](https://github.com/HugoDaniel/shader_canvas/tree/main/examples/4-composition)
+   * 
+   * This custom named tag is meant to be used as a child of the
+   * [`<new-modules>`](#NewModules) container tag.
+   */
+  static tag = "{{user defined}}";
+  /**
+   * Creates this module payload and calls any initializer function set for it
+   * through the Shader Canvas API.
+   */
   initializeModule(initializers: Map<string, (p: Payload) => void>) {
     const payload = new Payload(this);
     const initializerFunction = initializers.get(this.nodeName.toLowerCase());
@@ -11,6 +70,13 @@ export class CreateModule extends globalThis.HTMLElement {
     return payload;
   }
 
+  /**
+   * Connects the payload to the destination.
+   * Uses the `payloadChildFilter` to know which parts of the payload to use
+   * for a given destination root.
+   * 
+   * Can only merge instances of the `CanMerge` class.
+   */
   initialize(
     { payload, destinationRoot, payloadChildFilter, destinationChooser }: {
       payload: Payload;
