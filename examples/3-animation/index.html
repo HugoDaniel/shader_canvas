@@ -10,7 +10,7 @@
 </head>
 
 <body>
-    <div id="cubePoints">
+    <div id="cubePoints" style="display: none;">
         [
         -0.5, -0.5, -0.5,
         -0.5, 0.5, -0.5,
@@ -55,7 +55,7 @@
         0.5, 0.5, 0.5
         ]
     </div>
-    <div id="textureCoords">
+    <div id="textureCoords" style="display: none;">
         [
         0 , 0 ,
         0 , 0.5,
@@ -100,10 +100,10 @@
         0.75, 1
         ]
     </div>
-    <img id="texture" src="noodles.jpg">
+    <img id="texture" src="noodles.jpg" style="display: none;">
 
     <shader-canvas>
-        <new-parts>
+        <new-modules>
             <with-time>
                 <webgl-program-part>
                     <vertex-shader>
@@ -121,7 +121,7 @@
                 </webgl-program-part>
                 <script type=module>
                 import { ShaderCanvas } from "../../build/shader_canvas.js";
-                const part = ShaderCanvas.webglPart(() => {
+                const part = ShaderCanvas.webglModule(() => {
                     const timeStart = Date.now();
                     let time = 0;
                     let delta = 0;
@@ -146,7 +146,7 @@
                 part.useWith("with-time");
                 </script>
             </with-time>
-        </new-parts>
+        </new-modules>
         <webgl-canvas>
             <webgl-textures>
                 <noodles-atlas>
