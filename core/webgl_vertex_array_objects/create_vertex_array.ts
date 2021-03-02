@@ -165,7 +165,7 @@ export class CreateVertexArray extends globalThis.HTMLElement {
         // Initialize the `<bind-buffer>` tags
         await child.initialize(gl, buffers, locations);
         // Get the variable names that they have.
-        this.vars.concat(this.vars, child.vars);
+        this.vars = this.vars.concat(child.vars);
         // Look for ELEMENT_ARRAY_BUFFER targets, this means that this VAO
         // is meant to be drawn with `gl.drawElements()` instead of
         // `gl.drawArrays()`.

@@ -341,9 +341,8 @@ export class ShaderCanvas extends CanHaveModules {
    */
   draw: () => void = nop;
   async initialize() {
-    // Only proceed if every needed tag is registered
+    // Only proceed when every needed tag is registered
     await this.whenLoaded;
-
     // Check if there is a webgl-canvas child, if not, create one in the
     // shadow root.
     // This does not initialize or call any method, it just creates the

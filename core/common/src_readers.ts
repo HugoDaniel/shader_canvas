@@ -116,7 +116,7 @@ export function readImageDataFromQuery(src: string): Promise<ImageDataInput> {
           resolve(elem);
         }
         elem.onerror = (e) => {
-          console.warn(`Error with image at ${src}: ${e}`);
+          console.warn(`Error with image at ${src}: ${e.toString()}`);
         };
         elem.onabort = () => {
           console.warn(`Loading the image at ${src} was aborted`);

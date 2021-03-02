@@ -247,7 +247,6 @@ export class CreateProgram extends CanHaveModules {
   }
   /** Compiles shaders, this calls `gl.compileShader` */
   compile(gl: WebGL2RenderingContext) {
-    console.log("COMPILING", this.vertexShader?.code);
     this.vertexShader?.compile(gl);
     this.fragmentShader?.compile(gl);
   }
