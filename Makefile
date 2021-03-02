@@ -18,3 +18,6 @@ serve:
 
 stop:
 	killall Python
+
+build/shader_canvas.min.js: build/shader_canvas.js
+	terser $< -o $@ -c
