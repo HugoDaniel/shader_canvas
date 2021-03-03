@@ -1,4 +1,6 @@
 <!DOCTYPE html>
+<!-- Copyright 2021 Hugo Daniel Henriques Oliveira Gomes. All rights reserved.
+Licensed under the EUPL -->
 <html lang="en">
 
 <head>
@@ -62,7 +64,8 @@
     </shader-canvas>
 
     <script type="module">
-        import { ShaderCanvas } from "../../build/shader_canvas.js";
+        import { ShaderCanvas } from "https://cdn.deno.land/shader_canvas/versions/v0.0.6/raw/build/shader_canvas.min.js";
+        // import { ShaderCanvas } from "../../build/shader_canvas.js";
         window.addEventListener("load", () => {
             let c = document.querySelector("shader-canvas");
             if (c instanceof ShaderCanvas) {

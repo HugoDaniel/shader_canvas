@@ -1,4 +1,6 @@
 <!DOCTYPE html>
+<!-- Copyright 2021 Hugo Daniel Henriques Oliveira Gomes. All rights reserved.
+Licensed under the EUPL -->
 <html lang="en">
 
 <head>
@@ -6,7 +8,7 @@
     <link
         href="data:image/x-icon;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQEAYAAABPYyMiAAAABmJLR0T///////8JWPfcAAAACXBIWXMAAABIAAAASABGyWs+AAAAF0lEQVRIx2NgGAWjYBSMglEwCkbBSAcACBAAAeaR9cIAAAAASUVORK5CYII="
         rel="icon" />
-    <title>Shader Canvas Triangle Example</title>
+    <title>Shader Canvas Animation Module Example</title>
 </head>
 
 <body>
@@ -121,7 +123,7 @@
                 </webgl-program-part>
                 <script type=module>
                 import { ShaderCanvas } from "../../build/shader_canvas.js";
-                const part = ShaderCanvas.webglModule(() => {
+                const module = ShaderCanvas.webglModule(() => {
                     const timeStart = Date.now();
                     let time = 0;
                     let delta = 0;
@@ -143,7 +145,7 @@
                         },
                     })
                 })
-                part.useWith("with-time");
+                module.useWith("with-time");
                 </script>
             </with-time>
         </new-modules>
