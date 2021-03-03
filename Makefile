@@ -2,7 +2,7 @@ build/shader_canvas.js: shader_canvas.ts
 	mkdir -p $(dir $@)
 	deno bundle $< > $@
 
-documentation:
+docs/documentation.md:
 	touch docs/documentation.md
 	rm docs/documentation.md
 	deno run --unstable --allow-run --allow-read docs/generate.ts > docs/code.md
