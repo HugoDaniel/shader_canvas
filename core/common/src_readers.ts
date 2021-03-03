@@ -1,3 +1,5 @@
+// Copyright 2021 Hugo Daniel Henriques Oliveira Gomes. All rights reserved.
+// Licensed under the EUPL
 export type SrcReader<T> = (src: string) => Promise<T>;
 /**
  * A data reader that queries for the `src` string and runs `JSON.parse` on

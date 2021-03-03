@@ -1,3 +1,5 @@
+// Copyright 2021 Hugo Daniel Henriques Oliveira Gomes. All rights reserved.
+// Licensed under the EUPL
 import { ProgramRenderer } from "../common/program_class.ts";
 import { WebGLCanvasContext } from "../webgl_canvas/context.ts";
 import { dependencies, DrawCallsContainer } from "./draw_calls_container.ts";

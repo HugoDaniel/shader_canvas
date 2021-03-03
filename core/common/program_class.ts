@@ -1,3 +1,5 @@
+// Copyright 2021 Hugo Daniel Henriques Oliveira Gomes. All rights reserved.
+// Licensed under the EUPL
 import { Payload } from "../new_modules/payload.ts";
 import type { WebGLCanvasContext } from "../webgl_canvas/context.ts";
 import { CreateProgram } from "../webgl_programs/create_program.ts";

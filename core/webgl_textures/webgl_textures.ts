@@ -1,3 +1,5 @@
+// Copyright 2021 Hugo Daniel Henriques Oliveira Gomes. All rights reserved.
+// Licensed under the EUPL
 import { ShaderCanvasContainer } from "../shader_canvas/shader_canvas_container.ts";
 import { WebGLCanvasContext } from "../webgl_canvas/context.ts";
 import { CreateTexture } from "./create_texture.ts";

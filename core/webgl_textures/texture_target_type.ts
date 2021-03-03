@@ -1,3 +1,5 @@
+// Copyright 2021 Hugo Daniel Henriques Oliveira Gomes. All rights reserved.
+// Licensed under the EUPL
 export type TextureTarget =
   | "TEXTURE_2D"
   // The following select the face to show of a cube map texture:

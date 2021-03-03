@@ -1,3 +1,5 @@
+// Copyright 2021 Hugo Daniel Henriques Oliveira Gomes. All rights reserved.
+// Licensed under the EUPL
 import { BlendFunc } from "./blend_func.ts";
 import { ClearColor } from "./clear_color.ts";
 import { ClearDepth } from "./clear_depth.ts";

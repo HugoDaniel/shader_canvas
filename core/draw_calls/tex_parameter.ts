@@ -1,3 +1,5 @@
+// Copyright 2021 Hugo Daniel Henriques Oliveira Gomes. All rights reserved.
+// Licensed under the EUPL
 import type { TextureTarget } from "../webgl_textures/texture_target_type.ts";
 import { readTextureTarget } from "../webgl_textures/texture_target_type.ts";
 import { nop } from "../common/nop.ts";

@@ -1,3 +1,5 @@
+// Copyright 2021 Hugo Daniel Henriques Oliveira Gomes. All rights reserved.
+// Licensed under the EUPL
 import { FragmentShader, VertexShader } from "../webgl_programs/shaders.ts";
 import { CanMerge } from "./can_merge.ts";
 

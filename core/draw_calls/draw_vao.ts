@@ -1,3 +1,5 @@
+// Copyright 2021 Hugo Daniel Henriques Oliveira Gomes. All rights reserved.
+// Licensed under the EUPL
 import { nop } from "../common/nop.ts";
 import { CreateVertexArray } from "../webgl_vertex_array_objects/create_vertex_array.ts";
 import type { WebGLCanvasContext } from "../webgl_canvas/context.ts";

@@ -1,3 +1,5 @@
+// Copyright 2021 Hugo Daniel Henriques Oliveira Gomes. All rights reserved.
+// Licensed under the EUPL
 import { WebGLPrograms } from "../webgl_programs/webgl_programs.ts";
 import { WebGLBuffers } from "../webgl_buffers/webgl_buffers.ts";
 import { WebGLVertexArrayObjects } from "../webgl_vertex_array_objects/webgl_vertex_array_objects.ts";

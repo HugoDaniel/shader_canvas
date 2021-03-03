@@ -1,3 +1,5 @@
+// Copyright 2021 Hugo Daniel Henriques Oliveira Gomes. All rights reserved.
+// Licensed under the EUPL
 import { ShaderCanvasContainer } from "../shader_canvas/shader_canvas_container.ts";
 import { CreateProgram } from "./create_program.ts";
 import { FragmentShader, VertexShader } from "./shaders.ts";

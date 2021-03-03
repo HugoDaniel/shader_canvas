@@ -1,3 +1,5 @@
+// Copyright 2021 Hugo Daniel Henriques Oliveira Gomes. All rights reserved.
+// Licensed under the EUPL
 import { ShaderCanvasContainer } from "../shader_canvas/shader_canvas_container.ts";
 import { CreateBuffer } from "./create_buffer.ts";
 import { BufferData } from "./buffer_data.ts";

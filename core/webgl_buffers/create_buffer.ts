@@ -1,3 +1,5 @@
+// Copyright 2021 Hugo Daniel Henriques Oliveira Gomes. All rights reserved.
+// Licensed under the EUPL
 import { BufferData } from "./buffer_data.ts";
 import type { DataInputArray } from "./buffer_data.ts";
 import { nop } from "../common/nop.ts";
