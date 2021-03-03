@@ -13,6 +13,12 @@ tags.
 
 ## Developer notes
 
+The main file and code flow entry point is [`shader_canvas.ts`](https://github.com/HugoDaniel/shader_canvas/blob/main/shader_canvas.ts).
+
+If you are interested in contributing this is a cool place to start reading the code.
+
+### Make commands
+
 This project uses `make` to do the build automation and developer environment.
 
 The [`Makefile`](https://github.com/HugoDaniel/shader_canvas/blob/main/Makefile)
