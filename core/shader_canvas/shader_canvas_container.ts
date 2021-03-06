@@ -77,5 +77,12 @@ export class ShaderCanvasContainer<T> extends CanMerge {
         this.content.set(childName, child as unknown as T);
       }
     }
+    // Alert when no child was properly parsed, this is helpful to signal
+    // possible HTML indentation errors.
+    if (this.content.size === 0) {
+      console.error(
+        `No valid child nodes in <${this.tagName.toLocaleLowerCase()}>`,
+      );
+    }
   };
 }

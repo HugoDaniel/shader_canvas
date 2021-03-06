@@ -180,6 +180,7 @@ export class WebGLCanvas extends globalThis.HTMLElement {
       width,
       height,
       programInitializers,
+      modulesFunctions,
     } = init;
     // Only proceed if every needed tag is registered
     await this.whenLoaded;
@@ -246,11 +247,13 @@ export class WebGLCanvas extends globalThis.HTMLElement {
     // The context is now only partially initialized, to finish initialization
     // the custom initialize functions for each program need to be executed
     // if they exist.
-    const renderers = await ctx.programs.callInitializers(
-      this.gl,
+    // If a module is being used in a program, its initializer is also called.
+    const renderers = await ctx.programs.callInitializers({
+      gl: this.gl,
       ctx,
       programInitializers,
-    );
+      modulesFunctions,
+    });
 
     // Prepare the render function.
     // Check if there is a draw calls tag, and initialize it.

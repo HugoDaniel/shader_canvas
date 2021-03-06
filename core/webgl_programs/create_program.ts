@@ -280,6 +280,31 @@ export class CreateProgram extends CanHaveModules {
     gl.linkProgram(program);
   }
 
+  private shaderCompilationCheck(gl: WebGL2RenderingContext) {
+    if (this.vertexShader?.shader) {
+      const compiled = gl.getShaderParameter(
+        this.vertexShader.shader,
+        gl.COMPILE_STATUS,
+      );
+      if (!compiled) {
+        console.warn("Vertex Shader failed to compile");
+        const compilationLog = gl.getShaderInfoLog(this.vertexShader.shader);
+        console.log("Shader compiler log: " + compilationLog);
+      }
+    }
+    if (this.fragmentShader?.shader) {
+      const compiled = gl.getShaderParameter(
+        this.fragmentShader.shader,
+        gl.COMPILE_STATUS,
+      );
+      if (!compiled) {
+        console.warn("Fragment Shader failed to compile");
+        const compilationLog = gl.getShaderInfoLog(this.fragmentShader.shader);
+        console.log("Shader compiler log: " + compilationLog);
+      }
+    }
+  }
+
   /**
    * Checks if the program was properly created and linked.
    * 
@@ -288,6 +313,7 @@ export class CreateProgram extends CanHaveModules {
    * Deletes the program if errors are found.
    */
   statusCheck(gl: WebGL2RenderingContext) {
+    this.shaderCompilationCheck(gl);
     // Early return if the program is null or undefined
     if (!this.program) {
       throw new Error("Status: Program was not created " + this.tagName);

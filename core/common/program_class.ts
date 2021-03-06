@@ -10,6 +10,7 @@ export interface ModulesFunctions {
     program: CreateProgram,
     programName: string,
   ) => void;
+  initializer?: InitializerFunction;
 }
 export interface ShaderPart {
   useWith: (name: string) => void;
@@ -21,6 +22,8 @@ export type InitializerFunction = (
   options: {
     uniformLocations: Map<string, WebGLUniformLocation>;
     ctx: WebGLCanvasContext;
+    program: CreateProgram;
+    programName: string;
   },
 ) => ProgramRenderer | void;
 

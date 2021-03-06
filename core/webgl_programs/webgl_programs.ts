@@ -7,6 +7,7 @@ import { ShaderLocations } from "../common/locations.ts";
 import type { WebGLCanvasContext } from "../webgl_canvas/context.ts";
 import type {
   InitializerFunction,
+  ModulesFunctions,
   ProgramRenderer,
 } from "../common/program_class.ts";
 import { NewModules } from "../new_modules/new_modules.ts";
@@ -175,11 +176,12 @@ export class WebGLPrograms extends ShaderCanvasContainer<CreateProgram> {
    * corresponding customized render function.
    * It is meant to be used by the WebGLCanvas global initialization function.
    */
-  async callInitializers(
-    gl: WebGL2RenderingContext,
-    ctx: WebGLCanvasContext,
-    initializers: Map<string, InitializerFunction>,
-  ): Promise<Map<string, ProgramRenderer>> {
+  async callInitializers({ gl, ctx, programInitializers, modulesFunctions }: {
+    gl: WebGL2RenderingContext;
+    ctx: WebGLCanvasContext;
+    programInitializers: Map<string, InitializerFunction>;
+    modulesFunctions: Map<string, ModulesFunctions>;
+  }): Promise<Map<string, ProgramRenderer>> {
     // The final returned Map, relates the program name with its custom
     // render function.
     // This function fills this Map and returns it. Starts empty.
@@ -191,7 +193,7 @@ export class WebGLPrograms extends ShaderCanvasContainer<CreateProgram> {
     // associates them to their tag name.
     for (const [programName, program] of this.content.entries()) {
       // Get the initializer function for the current tag name
-      const f = initializers.get(programName);
+      const f = programInitializers.get(programName);
       // Check if it exists and if the program was correctly compiled.
       if (f && program && program.program) {
         // Bind the program before calling the initializer function
@@ -201,10 +203,21 @@ export class WebGLPrograms extends ShaderCanvasContainer<CreateProgram> {
         // optional attributes that holds the program uniform locations
         // and the global containers context (where the vertex attribute
         // locations can be read from)
-        const renderer = await f(gl, {
+        const initializerArgs = {
           uniformLocations: program.uniformLocations,
           ctx,
+          program,
+          programName: program.name,
+        };
+        const renderer = await f(gl, initializerArgs);
+        // Call the module initialize function if it is defined
+        program.modules.forEach((m) => {
+          const functions = modulesFunctions.get(m);
+          if (functions && functions.initializer) {
+            functions.initializer(gl, initializerArgs);
+          }
         });
+
         // Unbind the program after use
         gl.useProgram(null);
         // Check if a render function was returned (it might not, a program

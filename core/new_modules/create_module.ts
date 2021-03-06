@@ -78,6 +78,9 @@ export class CreateModule extends globalThis.HTMLElement {
    * for a given destination root.
    * 
    * Can only merge instances of the `CanMerge` class.
+   * 
+   * Returns a boolean indicating that this module had contents that were merged
+   * to its destination node.
    */
   initialize(
     { payload, destinationRoot, payloadChildFilter, destinationChooser }: {
@@ -86,8 +89,9 @@ export class CreateModule extends globalThis.HTMLElement {
       payloadChildFilter: (child: Node) => boolean;
       destinationChooser?: (moduleChildName: string) => Element | null;
     },
-  ) {
+  ): boolean {
     const nodes = payload.connectContents(this, payloadChildFilter);
+    let didMerge = false;
     for (const node of nodes) {
       if (node instanceof CanMerge) {
         if (destinationChooser) {
@@ -98,7 +102,9 @@ export class CreateModule extends globalThis.HTMLElement {
             destinationRoot.appendChild(destNode);
           }
           node.merge(destNode);
+          didMerge = didMerge || destNode !== null;
         } else {
+          didMerge = true;
           node.merge(destinationRoot);
         }
       } else {
@@ -108,6 +114,7 @@ export class CreateModule extends globalThis.HTMLElement {
         );
       }
     }
+    return didMerge;
   }
 }
 
@@ -127,25 +134,38 @@ export class CanHaveModules extends globalThis.HTMLElement {
     destinationRoot?: HTMLElement;
     destinationChooser?: (moduleChildName: string) => Element | null;
     removeModule?: boolean;
-  }) {
+  }): boolean {
+    let appliedPayload = false;
     for (const child of [...this.children]) {
       if (child instanceof CreateModule) {
         const name = child.nodeName.toLowerCase();
         // Get the payload for this children
         const payload = payloads.find((p) => p.tagName.toLowerCase() === name);
         if (!payload) continue;
-        // Add the part name to the parts array, signalizing that this
-        // element uses this part.
-        this.modules.push(name);
         // Connect the attributes from the part node into its children and
         // then merge its children with the root of this element
-        child.initialize(
-          { payload, destinationRoot, destinationChooser, payloadChildFilter },
-        );
+        // The result of `child.initialize` is a boolean indicating that the
+        // payload was applied.
+        if (
+          child.initialize(
+            {
+              payload,
+              destinationRoot,
+              destinationChooser,
+              payloadChildFilter,
+            },
+          )
+        ) {
+          // Add the part name to the parts array, signalizing that this
+          // element uses this part.
+          this.modules.push(name);
+          appliedPayload = true;
+        }
         if (removeModule) {
           this.removeChild(child);
         }
       }
     }
+    return appliedPayload;
   }
 }
