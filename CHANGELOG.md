@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The `ShaderCanvas.webglModule` API function now supports an `initializer()`
   function to be present in the functions objects it returns. This initializer
   function is run once per program during initialization.
+
+### Changed
+
 - The `modules` array in the CanHaveModules class now only contains the module
   names of the modules that were merged (previously it contained all modules
   present as children of the class, even if they included no parts to be merged
