@@ -3,7 +3,7 @@ describe("<webgl-programs>", function () {
   beforeEach(function () {
     domTestArea.innerHTML = "";
   });
-  const simpleTriangle = (programName) => `
+  const simpleTriangle = (programName, shaderCode = null) => `
   <div id="trianglePoints">[-0.7, 0, 0, 0.5, 0.7, 0]</div>
     <shader-canvas>
       <webgl-canvas>
@@ -29,6 +29,10 @@ describe("<webgl-programs>", function () {
           </webgl-vertex-array-objects>
           <webgl-programs>
               <${programName}>
+                  ${
+                    shaderCode
+                      ? shaderCode
+                      : `
                   <vertex-shader>
                       <code>
                           #version 300 es
@@ -49,6 +53,8 @@ describe("<webgl-programs>", function () {
                           }
                       </code>
                   </fragment-shader>
+                  `
+                  }
               </${programName}>
           </webgl-programs>
       </webgl-canvas>
@@ -203,6 +209,226 @@ describe("<webgl-programs>", function () {
           const fragmentShaderId = glslProgram.fragmentShader.shader;
           assert(vertexShaderId, "Must have a vertex shader id defined");
           assert(fragmentShaderId, "Must have a fragment shader id defined");
+        })
+        .then(() => done())
+        .catch((error) => done(error));
+    });
+    observer.observe(shaderCanvas.root, {
+      childList: true,
+    });
+    shaderCanvas.initialize();
+  });
+
+  it("merges multiple code tags", function (done) {
+    const name = "program-seven";
+    domTestArea.innerHTML = simpleTriangle(
+      name,
+      `
+    <vertex-shader>
+      <code>
+        #version 300 es
+        in vec4 a_position;
+      </code>
+      <code>
+       void main() {
+      </code>
+      <code>
+        gl_Position = a_position;
+      </code>
+      <code>
+      }
+      </code>
+    </vertex-shader>
+    <fragment-shader>
+      <code>
+          #version 300 es
+          precision highp float;
+          out vec4 outColor;
+
+          void main() {
+              outColor = vec4(1, 0, 1, 1);
+          }
+      </code>
+    </fragment-shader>
+    `
+    );
+    const shaderCanvas = document.querySelector("shader-canvas");
+    const observer = new MutationObserver(() => {
+      const webglPrograms = shaderCanvas.querySelector("webgl-programs");
+      waitFor(() => webglPrograms.content.has(name))
+        .then(() => {
+          const glslProgram = webglPrograms.content.get(name);
+          const vertexShaderCode = glslProgram.vertexShader.code;
+          assert(vertexShaderCode.length > 0);
+          assert(vertexShaderCode.split("\n").length === 5);
+        })
+        .then(() => done())
+        .catch((error) => done(error));
+    });
+    observer.observe(shaderCanvas.root, {
+      childList: true,
+    });
+    shaderCanvas.initialize();
+  });
+  it("preserves order of code tags", function (done) {
+    const name = "program-eight";
+    domTestArea.innerHTML = simpleTriangle(
+      name,
+      `
+    <vertex-shader>
+      <code>
+        #version 300 es
+        in vec4 a_position;
+      </code>
+      <code>
+       void main() {
+      </code>
+      <code>
+        gl_Position = a_position;
+      </code>
+      <code>
+      }
+      </code>
+    </vertex-shader>
+    <fragment-shader>
+      <code>
+          #version 300 es
+          precision highp float;
+          out vec4 outColor;
+
+          void main() {
+              outColor = vec4(1, 0, 1, 1);
+          }
+      </code>
+    </fragment-shader>
+    `
+    );
+    const shaderCanvas = document.querySelector("shader-canvas");
+    const observer = new MutationObserver(() => {
+      const webglPrograms = shaderCanvas.querySelector("webgl-programs");
+      waitFor(() => webglPrograms.content.has(name))
+        .then(() => {
+          const glslProgram = webglPrograms.content.get(name);
+          const vertexShaderCode = glslProgram.vertexShader.code.split("\n");
+          console.log(vertexShaderCode[2]);
+          assert(vertexShaderCode[0].includes("version 300 es"));
+          assert(vertexShaderCode[1].includes("in vec4 a_position"));
+          assert(vertexShaderCode[2].includes("void main() {"));
+          assert(vertexShaderCode[3].includes("gl_Position = a_position"));
+        })
+        .then(() => done())
+        .catch((error) => done(error));
+    });
+    observer.observe(shaderCanvas.root, {
+      childList: true,
+    });
+    shaderCanvas.initialize();
+  });
+
+  it("always places #version on top", function (done) {
+    const name = "program-nine";
+    domTestArea.innerHTML = simpleTriangle(
+      name,
+      `
+    <vertex-shader>
+      <code>
+        in vec4 a_position;
+      </code>
+      <code>
+       void main() {
+      </code>
+      <code>
+        gl_Position = a_position;
+      </code>
+      <code>
+      #version 300 es
+      </code>
+      <code>
+      }
+      </code>
+    </vertex-shader>
+    <fragment-shader>
+      <code>
+          #version 300 es
+          precision highp float;
+          out vec4 outColor;
+
+          void main() {
+              outColor = vec4(1, 0, 1, 1);
+          }
+      </code>
+    </fragment-shader>
+    `
+    );
+    const shaderCanvas = document.querySelector("shader-canvas");
+    const observer = new MutationObserver(() => {
+      const webglPrograms = shaderCanvas.querySelector("webgl-programs");
+      waitFor(() => webglPrograms.content.has(name))
+        .then(() => {
+          const glslProgram = webglPrograms.content.get(name);
+          const vertexShaderCode = glslProgram.vertexShader.code.split("\n");
+          assert(vertexShaderCode[0].includes("version 300 es"));
+          assert(vertexShaderCode[1].includes("in vec4 a_position"));
+          assert(vertexShaderCode[2].includes("void main() {"));
+          assert(vertexShaderCode[3].includes("gl_Position = a_position"));
+        })
+        .then(() => done())
+        .catch((error) => done(error));
+    });
+    observer.observe(shaderCanvas.root, {
+      childList: true,
+    });
+    shaderCanvas.initialize();
+  });
+  it("merges the code-before and code-after in the correct order", function (done) {
+    const name = "program-ten";
+    domTestArea.innerHTML = simpleTriangle(
+      name,
+      `
+  <vertex-shader>
+      <code-after>
+      vec4 panZoom2D(in vec4 _pos) {
+        return _pos + vec4(1.0, 1.0, 1.0, 1.0);
+      }
+      </code-after>
+      <code>
+          #version 300 es
+          in vec4 a_position;
+          void main() {
+              gl_Position = a_position;
+          }
+      </code>
+      <code-before>
+
+      vec4 panZoom2D(in vec4 _pos);
+      </code-before>
+  </vertex-shader>
+  <fragment-shader>
+      <code>
+          #version 300 es
+          precision highp float;
+          out vec4 outColor;
+
+          void main() {
+              outColor = vec4(1, 0, 1, 1);
+          }
+      </code>
+  </fragment-shader>
+`
+    );
+    const shaderCanvas = document.querySelector("shader-canvas");
+    const observer = new MutationObserver(() => {
+      const webglPrograms = shaderCanvas.querySelector("webgl-programs");
+      waitFor(() => webglPrograms.content.has(name))
+        .then(() => {
+          const glslProgram = webglPrograms.content.get(name);
+          const vertexShaderCode = glslProgram.vertexShader.code.split("\n");
+          console.log(vertexShaderCode);
+          assert(vertexShaderCode[0].includes("version 300 es"));
+          assert(vertexShaderCode[1].includes("vec4 panZoom2D(in vec4 _pos);"));
+          assert(
+            vertexShaderCode[6].includes("vec4 panZoom2D(in vec4 _pos) {")
+          );
         })
         .then(() => done())
         .catch((error) => done(error));

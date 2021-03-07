@@ -148,6 +148,7 @@ describe("<new-modules>", function () {
     const name = "modules-three";
     domTestArea.innerHTML = moduleTriangle(name);
     const shaderCanvas = document.querySelector("shader-canvas");
+
     const observer = new MutationObserver(() => {
       const modules = shaderCanvas.querySelector("new-modules");
       waitFor(() => modules.content.size > 0)

@@ -94,6 +94,7 @@ export class CreateModule extends globalThis.HTMLElement {
     let didMerge = false;
     for (const node of nodes) {
       if (node instanceof CanMerge) {
+        node.module = this.nodeName.toLowerCase();
         if (destinationChooser) {
           const destNodeName = node.tagName.toLowerCase();
           let destNode = destinationChooser(destNodeName);

@@ -28,52 +28,109 @@ class ShaderCode extends globalThis.HTMLElement {
   initialize() {
     // TODO: Setup a Mutation Observer to re-compile things when they change
     this.setupCode();
+    // The final output code is set as a text node directly on the shader html
+    // element
+    this.appendChild(globalThis.document.createTextNode(this.code));
+  }
+
+  /**
+   * Merges and returns the text content of the elements array passed as
+   * argument.
+   **/
+  private getCode = (codeTags: Element[]) => {
+    // Early return
+    if (codeTags.length === 0) return "";
+    // Convert to string (map the textContent of the element), and concat all
+    // strings (reduce by appending with the + string operator)
+    return (codeTags.map((code) => (code.textContent || "").trim()).reduce((
+      accum,
+      value,
+    ) => `${accum}\n${value}`));
+  };
+
+  /**
+   * Looks for the line with the string "#version " and puts it at the start
+   * of the "code" string.
+   * 
+   * This function is pure, it does not change the argument string.
+   */
+  private adjustVersion(code: string) {
+    return this.placeLineOnTop(code, ["#version "]);
   }
   /**
-   * This function asserts that at least one `<code>` tag exists and that there
-   * are no empty `<code>` tags.
+   * Looks for the line with the string "precision highp float;" or 
+   * "precision mediump float;" or "precision lowp float;" and puts it at the
+   * start of the "code" string.
+   * 
+   * This function is pure, it does not change the argument string.
    */
-  private hasCode = (codeTags: HTMLCollectionOf<HTMLElement>) => {
-    let isCodeEmpty = codeTags.length === 0;
-    for (let i = 0; i < codeTags.length; i++) {
-      isCodeEmpty = isCodeEmpty ||
-        (codeTags[i].textContent?.trim().length || 0) === 0;
-    }
-    return !isCodeEmpty;
-  };
+  private adjustPrecision(code: string) {
+    return this.placeLineOnTop(code, [
+      "precision highp float;",
+      "precision mediump float;",
+      "precision lowp float;",
+    ]);
+  }
 
-  /** Returns the text content of the first `<code>` tag found on the argument */
-  private getCode = (codeTags: HTMLCollectionOf<HTMLElement>) => {
-    if (codeTags.length === 0) return "";
-    return (codeTags[0].textContent || "").trim();
-  };
+  /**
+   * Looks for the line with at least one of the strings specified by "lookFor"
+   * and removes it from its location and puts it at the start of the "code"
+   * string.
+   * 
+   * This function is pure, it does not change the argument string.
+   */
+  private placeLineOnTop(code: string, lookFor: string[]) {
+    const lines = code.split("\n");
+    // Finds the first index that includes one of the strings in the "lookFor"
+    // array
+    const splitIndex = lines.findIndex((l) =>
+      lookFor.some((words) => l.includes(words))
+    );
+    if (splitIndex <= 0) return code;
+    return ([
+      lines[splitIndex],
+      ...lines.slice(0, splitIndex),
+      ...lines.slice(splitIndex + 1),
+    ].join("\n"));
+  }
 
   /** 
-   * Looks for all `<code>` tags and returns the `textContent` from the first
-   * found.
-   * 
-   * It throws an exception if no `<code>` tags were found or if there is no
-   * `textContent` set on the first `<code>` tag.
+   * Looks for all code tags (`<code-before>`, `<code>` and `<code-after>`)
+   * and returns the merged `textContent` string from all of them.
    **/
   private readCode = () => {
     // Read all <code> tags
-    const codeTags = this.getElementsByTagName("code");
-    // Ensure that the code exists and is not empty
-    if (!this.hasCode(codeTags)) {
-      throw new Error("Shader must have at least one non-empty <code> tag");
-    }
-    // Read the first <code> tag it finds into the "code" string
+    const codeTags = [
+      ...this.getElementsByTagName("code-before"),
+      ...this.getElementsByTagName("code"),
+      ...this.getElementsByTagName("code-after"),
+    ];
+    // Read the elements textContent's
     return this.getCode(codeTags);
   };
 
   /**
-   * Reads the `textContent` from first `<code>` tag found and parses its
+   * Reads the `textContent` from the code tags found and parses its
    * `GLSLVariables`
    * 
    * Sets `this.code` and `this.variables`.
+   * 
+   * Throws an exception if there is no code.
    **/
   private setupCode = () => {
     this.code = this.readCode();
+    // Ensure that the code exists and is not empty
+    if (!this.code || this.code.length === 0 || this.code.trim().length === 0) {
+      throw new Error(
+        `Shader must have at least one non-empty code tag\n\
+      Please ensure that there is at least one of "<code-before>", "<code>", \
+      "<code-after>"`,
+      );
+    }
+    // Adjust the location of the precision GLSL code line:
+    this.code = this.adjustPrecision(this.code);
+    // Adjust the #version of the GLSL code:
+    this.code = this.adjustVersion(this.code);
     this.variables = parse(this.code);
   };
 
@@ -86,7 +143,7 @@ class ShaderCode extends globalThis.HTMLElement {
   protected loadShader(gl: WebGL2RenderingContext, type: number) {
     const shader = gl.createShader(type);
     if (!shader) {
-      throw new Error("Unable to create a GL Shader");
+      throw new Error("Unable to create a WebGL Shader");
     }
     gl.shaderSource(shader, this.code);
     this.shader = shader;

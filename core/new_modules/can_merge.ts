@@ -13,6 +13,9 @@
  * attributes.
  */
 export class CanMerge extends globalThis.HTMLElement {
+  /** The name of the module where this part is coming from */
+  module = "unknown";
+
   /** 
    * Deep merge the children of a root node into a destination element.
    * This is a recursive function that directly appends the child (and its

@@ -34,60 +34,58 @@ export class WebGLProgramPart extends CanMerge {
    * [`<{{module-name}}>`](#CreateModule).
    */
   static tag = "webgl-program-part";
-  vertexCode = "";
-  fragmentCode = "";
 
   /**
-   * Merges the code from the `node` and `codeText` arguments into the
-   * `node.textContent`.
+   * Merges the code children tags from the `node` element to the `dest`
+   * element.
    * 
-   * It merges only WebGL2 GLSL code. The entry point of the code to merge is
-   * either bellow the "#version" line or the "precision" line. Whichever comes
-   * latest. 
+   * The final output code is created in the ShaderCode class by parsing the
+   * contents of all the children it has at the initialization stage.
    * 
    * This is a private function meant to be used by the `merge` method bellow.
    */
-  private mergeCode(node: Element | null, codeText: string) {
-    if (node) {
-      const splitCode = node.textContent?.split("\n") || [];
-      let splitLineIndex = splitCode.findIndex((line) =>
-        line.includes("precision ")
-      );
-      if (splitLineIndex === -1) {
-        splitLineIndex = splitCode.findIndex((line) =>
-          line.includes("#version ")
-        );
-      }
-      if (splitLineIndex >= 0) {
-        node.textContent = [
-          ...splitCode.slice(0, splitLineIndex + 1),
-          codeText,
-          ...splitCode.slice(splitLineIndex + 1),
-        ].join("\n");
-      } else {
-        node.textContent = [codeText, ...splitCode].join("\n");
+  private mergeCodeChildren(dest: Element | null, node: Element | null) {
+    if (node && dest) {
+      for (const child of node.childNodes) {
+        if (
+          child.nodeName === "CODE" || child.nodeName === "CODE-BEFORE" ||
+          child.nodeName === "CODE-AFTER"
+        ) {
+          const destSibling = dest.querySelector(child.nodeName);
+          const codeChild = child.cloneNode(true);
+          // Set the module origin as an attribute
+          if (codeChild instanceof globalThis.Element) {
+            codeChild.setAttribute(
+              "from-module",
+              this.module,
+            );
+          }
+          if (destSibling) {
+            dest.insertBefore(codeChild, destSibling);
+          } else {
+            dest.appendChild(codeChild);
+          }
+        }
       }
     }
   }
+
   /**
    * Merges the partial code in this "Program Part" in the destination element
    * passed as argument.
    */
   merge(dest: Element | undefined | null) {
     if (!dest) return;
-    this.vertexCode =
-      this.querySelector(`${VertexShader.tag} code`)?.textContent ||
-      "";
-    this.fragmentCode =
-      this.querySelector(`${FragmentShader.tag} code`)?.textContent || "";
 
-    this.mergeCode(
-      dest.querySelector(`${VertexShader.tag} code`),
-      this.vertexCode,
+    const vertexElem = this.querySelector(VertexShader.tag);
+    const fragmentElem = this.querySelector(FragmentShader.tag);
+    this.mergeCodeChildren(
+      dest.querySelector(VertexShader.tag),
+      vertexElem,
     );
-    this.mergeCode(
-      dest.querySelector(`${FragmentShader.tag} code`),
-      this.fragmentCode,
+    this.mergeCodeChildren(
+      dest.querySelector(FragmentShader.tag),
+      fragmentElem,
     );
   }
 }
