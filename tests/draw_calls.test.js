@@ -1,6 +1,6 @@
 // deno-lint-ignore-file
 
-describe.only("<draw-calls>", function () {
+describe("<draw-calls>", function () {
   const drawCode = (programName, fps = null) => `
   <shader-canvas>
     <webgl-canvas>
@@ -149,12 +149,6 @@ describe.only("<draw-calls>", function () {
             calls[2].includes("gl.clear"),
             "Incorrect order in <clear-flags>"
           );
-          /*
-          assert(
-            calls[3].includes("useProgram"),
-            "Incorrect order in <use-program>"
-          );
-          */
         })
         .then(() => done())
         .catch((error) => done(error));
