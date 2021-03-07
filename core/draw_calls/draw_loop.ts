@@ -62,8 +62,13 @@ export class DrawLoop extends DrawCallsContainer {
    * 
    * The function `requestFrame` is set to a `setTimeout` when the attribute
    * "fps" is defined, otherwise `window.requestAnimationFrame` is used.
+   * 
+   * This function does nothing if there is already a started loop running.
    */
   start() {
+    // Don't start if there is already a loop running
+    if (this.intervalId !== -1) return;
+    // Use `setTimeout` if there is a fixed number of "fps" defined.
     if (this.fps) {
       const interval = Math.floor(1000 / this.fps);
       this.requestFrame = () => setTimeout(this.raf, interval);
@@ -71,14 +76,20 @@ export class DrawLoop extends DrawCallsContainer {
     this.intervalId = this.requestFrame();
   }
   /**
-   * Stops the animation frame.
+   * Stops the animation frame if there is a running animation happening.
    */
   stop() {
+    // Don't stop if it is already stopped
+    if (this.intervalId === -1) {
+      return;
+    }
+    // Use `clearTimeout` if there is a fixed number of "fps" defined
     if (this.fps) {
-      clearInterval(this.intervalId);
+      clearTimeout(this.intervalId);
     } else {
       window.cancelAnimationFrame(this.intervalId);
     }
+    this.intervalId = -1;
   }
 
   /**

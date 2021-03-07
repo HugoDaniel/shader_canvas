@@ -12,6 +12,7 @@
 import "https://deno.land/x/domtype@v1.0.4/mod.ts";
 import { nop } from "./core/common/nop.ts";
 import { DrawCalls } from "./core/draw_calls/draw_calls.ts";
+import { DrawLoop } from "./core/draw_calls/draw_loop.ts";
 import { WebGLCanvas } from "./core/webgl_canvas/webgl_canvas.ts";
 import type {
   InitializerFunction,
@@ -40,6 +41,7 @@ const dependsOn = [
   NewModules,
   WebGLCanvas,
   DrawCalls,
+  DrawLoop,
 ];
 
 /**
@@ -446,6 +448,12 @@ export class ShaderCanvas extends CanHaveModules {
       if (this.webglCanvas instanceof WebGLCanvas) {
         const webglDraw = this.webglCanvas.webglCanvasDraw;
         this.draw = webglDraw;
+        // If there is a loop, keep a reference to it to help starting and
+        // stopping it directly through the ShaderCanvas API
+        const loopElement = this.querySelector("draw-loop");
+        if (loopElement && loopElement instanceof DrawLoop) {
+          this.loop = loopElement;
+        }
       } else {
         console.warn(`<${ShaderCanvas.tag}>: no webgl canvas instance found`);
       }
@@ -455,6 +463,36 @@ export class ShaderCanvas extends CanHaveModules {
       // This else is very unlikely to happen, but still some kind of output
       // is welcome to have in such an event.
       console.warn(`No <${WebGLCanvas.tag}> found.`);
+    }
+  }
+
+  /**
+   * A helper reference to the `<draw-loop>` instance if there is one.
+   * 
+   * This is set in the `initialize()` function.
+   */
+  loop: undefined | DrawLoop;
+
+  /**
+   * This method starts a drawing loop if there is one defined.
+   * 
+   * It does nothing if there is no loop defined or if there is already
+   * a loop running (this is checked in the `loop.start()` method).
+   */
+  startLoop() {
+    if (this.loop) {
+      this.loop.start();
+    }
+  }
+
+  /**
+   * This method starts a drawing loop if there is one defined.
+   * It does nothing if there is no loop defined or if there is no loop
+   * started (this is checked in the `loop.stop()` method)
+   */
+  stopLoop() {
+    if (this.loop) {
+      this.loop.stop();
     }
   }
 

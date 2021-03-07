@@ -266,6 +266,20 @@ These two functions must be called for Shader Canvas to render anything.
 They can be seen in action in all of the
 [provided examples](https://github.com/HugoDaniel/shader_canvas/blob/main/examples/1-triangle/index.html).
 
+## Utility functions
+
+Starting and stopping the drawing loop can be done with the instance functions:
+
+- `<shaderCanvasInstance>.startLoop`
+
+  _Starts the drawing loop if there is one defined and it is not started._
+
+- `<shaderCanvasInstance>.stopLoop`
+
+  _Stops the drawing loop if there is one defined and it is started._
+
+You can define a drawing loop with the [`<draw-loop>`](#DrawLoop) tag.
+
 <hr></hr>
 
 # Reference

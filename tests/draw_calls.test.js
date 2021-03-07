@@ -187,4 +187,28 @@ describe("<draw-calls>", function () {
     });
     shaderCanvas.initialize();
   });
+
+  it("starts the loop by default", function (done) {
+    const name = "draw-four";
+    const fps = 20;
+    let started = false;
+    // Mock setTimeout
+    globalThis.setTimeout = () => {
+      started = true;
+    };
+    domTestArea.innerHTML = drawCode(name, fps);
+    const shaderCanvas = document.querySelector("shader-canvas");
+    const observer = new MutationObserver(() => {
+      waitFor(() => started === true)
+        .then(() => {
+          assert(started === true, "Must start by default\n");
+        })
+        .then(() => done())
+        .catch((error) => done(error));
+    });
+    observer.observe(shaderCanvas.root, {
+      childList: true,
+    });
+    shaderCanvas.initialize();
+  });
 });

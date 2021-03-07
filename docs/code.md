@@ -763,7 +763,9 @@ WebGL draw call. It is intended to hold an ordered list of tags that is run
 sequentially _and repeatedly_.
 
 It creates a draw function to perform each action listed as children and
-then registers a `requestAnimationFrame` for that draw function.
+then registers a `requestAnimationFrame` for that draw function
+(the `setTimeout()` is used instead if a the number of FPS's are specified
+).
 
 It allows the same children that the [`<draw-calls>`](#DrawCalls) accepts.
 
@@ -773,8 +775,16 @@ For a usable example check the
 The `<draw-loop>` tag is meant to be used as a child of the
 [`<draw-calls>`](#DrawCalls) tag.
 
-<em><small><a href="https://github.com/HugoDaniel/shader_canvas/blob/main/core/draw_calls/draw_loop.ts#L18">View Source</a></small></em>
+<em><small><a href="https://github.com/HugoDaniel/shader_canvas/blob/main/core/draw_calls/draw_loop.ts#L19">View Source</a></small></em>
 
+### Attributes of `<DrawLoop>`
+
+#### _[fps](https://github.com/HugoDaniel/shader_canvas/blob/main/core/draw_calls/draw_loop.ts#L131)_
+
+Sets the number of Frames Per Second (FPS) that the loop should run.
+It defaults to using the `window.requestAnimationFrame`.
+
+This attribute is a number.
 
 
 <hr>
@@ -988,11 +998,11 @@ The allowed children are:
 </shader-canvas>
 ```
 
-<em><small><a href="https://github.com/HugoDaniel/shader_canvas/blob/main/shader_canvas.ts#L70">View Source</a></small></em>
+<em><small><a href="https://github.com/HugoDaniel/shader_canvas/blob/main/shader_canvas.ts#L72">View Source</a></small></em>
 
 ### Attributes of `<ShaderCanvas>`
 
-#### _[width](https://github.com/HugoDaniel/shader_canvas/blob/main/shader_canvas.ts#L295)_
+#### _[width](https://github.com/HugoDaniel/shader_canvas/blob/main/shader_canvas.ts#L297)_
 
 A number that sets the width of the underlying graphics backend.
 This number is passed to the graphics backend to set its canvas dimensions.
@@ -1001,7 +1011,7 @@ It defaults to the `window.innerWidth` attribute value.
 
 A graphics backend might not follow this number exactly and use it as a
 basis to set the pixel width based on the underlying pixel ratio.
-#### _[height](https://github.com/HugoDaniel/shader_canvas/blob/main/shader_canvas.ts#L309)_
+#### _[height](https://github.com/HugoDaniel/shader_canvas/blob/main/shader_canvas.ts#L311)_
 
 A number that sets the height of the underlying graphics backend.
 Like the width, this is passed to the graphics backend to set its
@@ -1636,7 +1646,7 @@ For a usable example check the
 The `<webgl-programs>` tag is meant to be used as a child of the
 [`<webgl-canvas>`](#WebGLCanvas) tag.
 
-<em><small><a href="https://github.com/HugoDaniel/shader_canvas/blob/main/core/webgl_programs/webgl_programs.ts#L40">View Source</a></small></em>
+<em><small><a href="https://github.com/HugoDaniel/shader_canvas/blob/main/core/webgl_programs/webgl_programs.ts#L41">View Source</a></small></em>
 
 
 
