@@ -1,17 +1,19 @@
 // deno-lint-ignore-file
 
-describe("<draw-calls>", function () {
-  const drawCode = (programName) => `
+describe.only("<draw-calls>", function () {
+  const drawCode = (programName, fps = null) => `
   <shader-canvas>
     <webgl-canvas>
       <draw-calls>
           <viewport-transform x="0" y="0"></viewport-transform>
           <clear-color red="0" green="0" blue="0" alpha="1"></clear-color>
           <clear-flags mask="COLOR_BUFFER_BIT"></clear-flags>
-          <use-program src="${programName}">
-              <active-texture var="u_texture" src="${programName}-texture"></active-texture>
-              <draw-vao src="${programName}-vao"></draw-vao>
-          </use-program>
+          <draw-loop ${fps ? `fps="${fps}"` : ""}>
+            <use-program src="${programName}">
+                <active-texture var="u_texture" src="${programName}-texture"></active-texture>
+                <draw-vao src="${programName}-vao"></draw-vao>
+            </use-program>
+          </draw-loop>
       </draw-calls>
       <webgl-textures>
           <${programName}-texture>
@@ -115,8 +117,8 @@ describe("<draw-calls>", function () {
         .then(() => {
           assert.equal(
             drawCallsElem.drawFunctions.length,
-            4,
-            "Must read 4 draw functions"
+            3,
+            "Must read 3 draw functions"
           );
         })
         .then(() => done())
@@ -135,6 +137,8 @@ describe("<draw-calls>", function () {
       const drawCallsElem = shaderCanvas.querySelector("draw-calls");
       waitFor(() => drawCallsElem.drawFunctions.length > 0)
         .then(() => {
+          // Convert the functions to a string, and check if they have the
+          // corresponding tag function.
           const calls = drawCallsElem.drawFunctions.map((c) => c.toString());
           assert(calls[0].includes("gl.viewport"), "Must start with viewport");
           assert(
@@ -145,9 +149,40 @@ describe("<draw-calls>", function () {
             calls[2].includes("gl.clear"),
             "Incorrect order in <clear-flags>"
           );
+          /*
           assert(
             calls[3].includes("useProgram"),
             "Incorrect order in <use-program>"
+          );
+          */
+        })
+        .then(() => done())
+        .catch((error) => done(error));
+    });
+    observer.observe(shaderCanvas.root, {
+      childList: true,
+    });
+    shaderCanvas.initialize();
+  });
+
+  it("sets the draw-loop desired fps with setTimeout", function (done) {
+    const name = "draw-three";
+    const fps = 20;
+    let timeout = 0;
+    // Mock setTimeout
+    globalThis.setTimeout = (_, t) => {
+      timeout = t;
+    };
+    domTestArea.innerHTML = drawCode(name, fps);
+    const shaderCanvas = document.querySelector("shader-canvas");
+    const observer = new MutationObserver(() => {
+      waitFor(() => timeout > 0)
+        .then(() => {
+          const loop = shaderCanvas.querySelector("draw-loop");
+          assert(loop.getAttribute("fps") === `${fps}`);
+          assert(
+            timeout === 1000 / fps,
+            `Must have a timeout of ${1000 / fps}\n`
           );
         })
         .then(() => done())

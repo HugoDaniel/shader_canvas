@@ -13,7 +13,8 @@ const dependsOn = [...dependencies];
 /**
  * This class defines a list of draw actions to be performed repeatedly. 
  * It is a Web Component that works like the DrawCalls, but sets a
- * `requestAnimationFrame` for the drawing function.
+ * `requestAnimationFrame` for the drawing function (or a `setTimeout` if
+ * a the number of FPS's are specified).
  */
 export class DrawLoop extends DrawCallsContainer {
   /**
@@ -24,7 +25,9 @@ export class DrawLoop extends DrawCallsContainer {
    * sequentially _and repeatedly_.
    * 
    * It creates a draw function to perform each action listed as children and
-   * then registers a `requestAnimationFrame` for that draw function.
+   * then registers a `requestAnimationFrame` for that draw function
+   * (the `setTimeout()` is used instead if a the number of FPS's are specified
+   * ).
    * 
    * It allows the same children that the [`<draw-calls>`](#DrawCalls) accepts.
    * 
@@ -43,28 +46,47 @@ export class DrawLoop extends DrawCallsContainer {
     dependsOn.map((c) => globalThis.customElements.whenDefined(c.tag)),
   );
 
-  /** A reference to the registered `requestAnimationFrame` callback id */
-  rafId = -1;
+  /** A reference to the registered `requestFrame` callback id */
+  intervalId = -1;
   /**
-   * The function that will be registered in the `requestAnimationFrame`.
+   * The function that will be registered by the `requestFrame()`.
    */
   raf = (dt: DOMHighResTimeStamp) => {
     this.drawCalls();
-    this.rafId = window.requestAnimationFrame(this.raf);
+    this.intervalId = this.requestFrame();
   };
   /**
-   * Starts the loop, calls`requestAnimationFrame` for the loop function, and
-   * keeps its request id (to allow it to be canceled/stopped)
+   * Starts the loop, calls the function set at the `requestFrame` for the loop
+   * function, and keeps track of its request id
+   * (to allow it to be canceled/stopped).
+   * 
+   * The function `requestFrame` is set to a `setTimeout` when the attribute
+   * "fps" is defined, otherwise `window.requestAnimationFrame` is used.
    */
   start() {
-    this.rafId = window.requestAnimationFrame(this.raf);
+    if (this.fps) {
+      const interval = Math.floor(1000 / this.fps);
+      this.requestFrame = () => setTimeout(this.raf, interval);
+    }
+    this.intervalId = this.requestFrame();
   }
   /**
    * Stops the animation frame.
    */
   stop() {
-    window.cancelAnimationFrame(this.rafId);
+    if (this.fps) {
+      clearInterval(this.intervalId);
+    } else {
+      window.cancelAnimationFrame(this.intervalId);
+    }
   }
+
+  /**
+   * The function `requestFrame` is set to a `setTimeout` when the attribute
+   * "fps" is defined (this happens in the `start()` function), otherwise
+   * by default the `window.requestAnimationFrame` is used.
+   */
+  requestFrame = () => window.requestAnimationFrame(this.raf);
   /**
    * Creates the drawing function that performs the action of each child tag
    * declared.
@@ -87,6 +109,20 @@ export class DrawLoop extends DrawCallsContainer {
         this.drawFunctions.unshift(() => f(context));
       }
     }
+  }
+
+  /**
+   * Sets the number of Frames Per Second (FPS) that the loop should run.
+   * It defaults to using the `window.requestAnimationFrame`.
+   * 
+   * This attribute is a number.
+   */
+  get fps(): number | null {
+    const value = this.getAttribute("fps");
+    if (value) {
+      return Number(value);
+    }
+    return null;
   }
 }
 

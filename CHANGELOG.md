@@ -9,10 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `<draw-loop>` now supports setting the frames per second ("fps" attribute).
 - Show compiler errors for each shader after compilation is done.
 - Print a console.error when a container has no children to create; execution
   continues as normal, just the error is output.
-- This changelog
+- This changelog.
 - The `ShaderCanvas.webglModule` API function now supports an `initializer()`
   function to be present in the functions objects it returns. This initializer
   function is run once per program during initialization.
