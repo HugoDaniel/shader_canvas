@@ -438,7 +438,6 @@ export class CreateProgram extends CanHaveModules {
     if (!this.program) {
       throw new Error("Shader Program failed compilation");
     }
-
     // Get vertex attribute locations for this program
     for (const variable of this.inputs()) {
       // Only consider variables that are vertex attributes

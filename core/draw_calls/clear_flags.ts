@@ -31,8 +31,8 @@ export class ClearFlags extends globalThis.HTMLElement {
    * - `"DEPTH_BUFFER_BIT"`
    * - `"STENCIL_BUFFER_BIT"`
    */
-  get flags(): string[] {
-    const maskString = this.getAttribute("flags");
+  get mask(): string[] {
+    const maskString = this.getAttribute("mask");
     if (!maskString) return [];
 
     return maskString.split("|").map((s) => s.trim());
@@ -49,14 +49,14 @@ export class ClearFlags extends globalThis.HTMLElement {
    * them with a bitwise or.
    */
   initialize(gl: WebGL2RenderingContext) {
-    const flags = this.flags;
+    const flags = this.mask;
     let mask = 0;
     flags.forEach((flag) => {
       if (
         flag === "COLOR_BUFFER_BIT" || flag === "DEPTH_BUFFER_BIT" ||
         flag === "STENCIL_BUFFER_BIT"
       ) {
-        mask = mask | gl[flag];
+        mask = gl[flag] | mask;
       }
     });
     this.clearFlags = () => gl.clear(mask);

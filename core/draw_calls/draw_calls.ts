@@ -126,15 +126,16 @@ export class DrawCalls extends DrawCallsContainer {
     gl: WebGL2RenderingContext,
     context: WebGLCanvasContext,
     renderers: Map<string, ProgramRenderer>,
+    updaters: (() => void)[],
   ) {
     // Only proceed when all dependencies have been created
     await this.whenLoaded;
     // Create the draw function (this function is from the DrawCallsContainer)
-    await this.buildDrawFunction(gl, context, renderers);
+    await this.buildDrawFunction(gl, context, renderers, updaters);
     // Finally, check if there is a loop child, create the loop and start it.
     const drawLoopElem = this.querySelector(DrawLoop.tag);
     if (drawLoopElem && drawLoopElem instanceof DrawLoop) {
-      await drawLoopElem.initialize(gl, context, renderers);
+      await drawLoopElem.initialize(gl, context, renderers, updaters);
       drawLoopElem.start();
     }
   }

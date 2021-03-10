@@ -13,13 +13,19 @@ export class DrawVAO extends globalThis.HTMLElement {
    * ## `<draw-vao>` {#DrawVAO}
    * 
    * This tag is equivalent to either the [`gl.drawElements()`](https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/drawElements)
-   * or the [`gl.drawArrays()`](https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/drawArrays)
+   * or the [`gl.drawArrays()`](https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/drawArrays).
+   * 
+   * If the "instanceCount" attribute is set, then it makes use
+   * of the [`gl.drawElementsInstanced()`](https://developer.mozilla.org/en-US/docs/Web/API/WebGL2RenderingContext/drawElementsInstanced)
+   * or the [`gl.drawArraysInstanced()`](https://developer.mozilla.org/en-US/docs/Web/API/WebGL2RenderingContext/drawArraysInstanced)
    * functions.
    * 
    * It searches for the Vertex Array Object specified by the `src` attribute
    * and calls `gl.drawElements` if it has an element array buffer, or 
    * `gl.drawArrays` otherwise.
-   * 
+   * (or `gl.drawElementsInstanced()`/`gl.drawArraysInstanced()` if
+   * "instanceCount" is set)
+   *
    * The number of items to draw can be specified in the "count" attribute,
    * but these also get calculated automatically by the vertex array buffer 
    * specifications.
@@ -56,6 +62,7 @@ export class DrawVAO extends globalThis.HTMLElement {
   get mode(): VAOMode {
     return readVaoMode(this.getAttribute("mode"));
   }
+
   /**
    * The number of elements to draw.
    * 
@@ -72,6 +79,24 @@ export class DrawVAO extends globalThis.HTMLElement {
       this.getAttribute("count"),
     );
   }
+  /**
+   * The number of instances of the range of elements to execute.
+   * 
+   * Setting this attribute makes `<draw-vao>` use the
+   * [`gl.drawArraysInstanced()`](https://developer.mozilla.org/en-US/docs/Web/API/WebGL2RenderingContext/drawArraysInstanced)
+   * or the [`gl.drawElementsInstanced()`](https://developer.mozilla.org/en-US/docs/Web/API/WebGL2RenderingContext/drawElementsInstanced).
+   */
+  set instanceCount(value: number) {
+    if (value) {
+      this.setAttribute("instanceCount", `${value}`);
+    }
+  }
+  get instanceCount(): number {
+    return Number(
+      this.getAttribute("instanceCount"),
+    );
+  }
+
   /**
    * A number specifying a byte offset in the element array buffer. Must be a
    * valid multiple of the size of the given type.
@@ -149,16 +174,31 @@ export class DrawVAO extends globalThis.HTMLElement {
     const type = gl[this.type];
     const offset = this.offset;
     const first = this.first;
+    const instances = this.instanceCount;
     if (this.vao.hasElementArrayBuffer) {
-      this.drawVao = () => {
-        bindVao();
-        gl.drawElements(mode, count, type, offset);
-      };
+      if (instances > 0) {
+        this.drawVao = () => {
+          bindVao();
+          gl.drawElementsInstanced(mode, count, type, offset, instances);
+        };
+      } else {
+        this.drawVao = () => {
+          bindVao();
+          gl.drawElements(mode, count, type, offset);
+        };
+      }
     } else {
-      this.drawVao = () => {
-        bindVao();
-        gl.drawArrays(mode, first, count);
-      };
+      if (instances > 0) {
+        this.drawVao = () => {
+          bindVao();
+          gl.drawArraysInstanced(mode, first, count, instances);
+        };
+      } else {
+        this.drawVao = () => {
+          bindVao();
+          gl.drawArrays(mode, first, count);
+        };
+      }
     }
   }
 }
@@ -231,7 +271,7 @@ function readTargetMinCount(t: VAOMode): number {
  * They follow the possible values for the `gl.drawVAO`
  * [type parameter](https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/drawArrays#parameters).
  */
-type VAOType = "UNSIGNED_BYTE" | "UNSIGNED_SHORT";
+type VAOType = "UNSIGNED_BYTE" | "UNSIGNED_SHORT" | "UNSIGNED_INT";
 /**
  * Helper function that reads any string and returns it if it is a valid
  * `VAOType` string.
@@ -240,6 +280,7 @@ type VAOType = "UNSIGNED_BYTE" | "UNSIGNED_SHORT";
  */
 function readVAOType(value: string | null): VAOType {
   if (value === "UNSIGNED_SHORT") return value;
+  if (value === "UNSIGNED_INT") return value;
 
   return "UNSIGNED_BYTE";
 }

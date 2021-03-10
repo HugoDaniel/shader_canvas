@@ -95,8 +95,13 @@ export class CreateBuffer extends globalThis.HTMLElement {
       );
       return;
     }
+    // By default bind the ARRAY target
+    this.bindBuffer = () => {
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+      return gl.ARRAY_BUFFER;
+    };
     // TODO: merge data buffers into a single data buffer
-    for (const child of [...this.children]) {
+    for (const child of Array.from(this.children)) {
       if (child instanceof BufferData) {
         child.initialize(gl); // creates the load function
         await child.load(this.buffer); // loads the buffer data

@@ -1,6 +1,7 @@
 // Copyright 2021 Hugo Daniel Henriques Oliveira Gomes. All rights reserved.
 // Licensed under the EUPL
 import type {
+  InitializeBufferFunction,
   InitializerFunction,
   ModulesFunctions,
 } from "../common/program_class.ts";
@@ -10,6 +11,7 @@ export interface ShaderCanvasInitializer {
   width: number;
   height: number;
   programInitializers: Map<string, InitializerFunction>;
+  bufferInitializers: InitializeBufferFunction[];
   payloads: Payload[];
   modulesFunctions: Map<string, ModulesFunctions>;
 }

@@ -161,8 +161,9 @@ export class CreateVertexArray extends globalThis.HTMLElement {
       );
       return;
     }
-    gl.bindVertexArray(this.vao);
-    for (const child of [...this.children]) {
+    const vao = this.vao;
+    gl.bindVertexArray(vao);
+    for (const child of Array.from(this.children)) {
       if (child instanceof BindBuffer) {
         // Initialize the `<bind-buffer>` tags
         await child.initialize(gl, buffers, locations);
@@ -182,9 +183,10 @@ export class CreateVertexArray extends globalThis.HTMLElement {
     }
     // This must be called *after* all buffers are initialized
     gl.bindVertexArray(null);
-    const vao = this.vao;
     // Create the bind function
-    this.bindVAO = () => gl.bindVertexArray(vao);
+    this.bindVAO = () => {
+      gl.bindVertexArray(vao);
+    };
   }
 }
 

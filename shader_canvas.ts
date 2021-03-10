@@ -15,6 +15,7 @@ import { DrawCalls } from "./core/draw_calls/draw_calls.ts";
 import { DrawLoop } from "./core/draw_calls/draw_loop.ts";
 import { WebGLCanvas } from "./core/webgl_canvas/webgl_canvas.ts";
 import type {
+  InitializeBufferFunction,
   InitializerFunction,
   ModulesFunctions,
   ShaderPart,
@@ -23,6 +24,7 @@ import type {
 import { NewModules } from "./core/new_modules/new_modules.ts";
 import { Payload } from "./core/new_modules/payload.ts";
 import { CanHaveModules } from "./core/new_modules/create_module.ts";
+import { ImportModule } from "./core/new_modules/import_module.ts";
 
 /**
  * Shader Canvas uses a very simple life-cycle for its components.
@@ -42,6 +44,7 @@ const dependsOn = [
   WebGLCanvas,
   DrawCalls,
   DrawLoop,
+  ImportModule,
 ];
 
 /**
@@ -167,7 +170,15 @@ export class ShaderCanvas extends CanHaveModules {
    * `ShaderCanvas.createProgram()`.
    **/
   private static programInitializers = new Map<string, InitializerFunction>();
+  static initializeBuffers(init: InitializeBufferFunction) {
+    this.bufferInitializers.push(init);
+  }
 
+  /**
+   * A list of all the buffer initializer functions that get called at the
+   * end of the buffers initialization method.
+   */
+  private static bufferInitializers: InitializeBufferFunction[] = [];
   /**
    * This function associates an initializer and life-cycle methods to a
    * module.
@@ -374,10 +385,35 @@ export class ShaderCanvas extends CanHaveModules {
     // backend tag (<webgl-canvas> in this case).
     this.root.append(style, slot);
 
+    // Load all modules that are being imported
+    const modulesToLoad = globalThis.document.querySelectorAll("import-module");
+    const loadedModules: string[] = [];
+    for (const module of modulesToLoad) {
+      if (module && module instanceof ImportModule) {
+        const content = await module.initialize();
+        if (content) {
+          loadedModules.push(content);
+        }
+      }
+    }
+
     // Initialization of child components starts here:
     // To read any new modules that might be defined, get the <new-modules>
     // class and initialize it.
-    const modules = this.querySelector(NewModules.tag);
+    let modules = this.querySelector(NewModules.tag);
+    if (!modules && loadedModules.length > 0) {
+      // Create a placeholder <new-modules> in the shadow root to hold the
+      // loaded modules
+      modules = globalThis.document.createElement(NewModules.tag);
+      this.root.appendChild(modules);
+    }
+    if (!modules) {
+      throw new Error("Unable to create placeholder <new-modules> tag");
+    }
+    // Place modules content
+    for (const moduleContent of loadedModules) {
+      modules.insertAdjacentHTML("afterbegin", moduleContent);
+    }
     // Payloads represent the intermediate state of a module. It holds the
     // module contents and how to fill them with the information that might
     // be provided through the attributes of the main module tag.
@@ -439,6 +475,7 @@ export class ShaderCanvas extends CanHaveModules {
         height: this.height,
         payloads,
         programInitializers: ShaderCanvas.programInitializers,
+        bufferInitializers: ShaderCanvas.bufferInitializers,
         modulesFunctions: ShaderCanvas.modulesFunctions,
       });
       // The ShaderCanvas draw function is just a reference to the webgl draw

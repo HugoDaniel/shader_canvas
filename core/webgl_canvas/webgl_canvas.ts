@@ -181,6 +181,7 @@ export class WebGLCanvas extends globalThis.HTMLElement {
       height,
       programInitializers,
       modulesFunctions,
+      bufferInitializers,
     } = init;
     // Only proceed if every needed tag is registered
     await this.whenLoaded;
@@ -244,6 +245,12 @@ export class WebGLCanvas extends globalThis.HTMLElement {
     await ctx.textures.initialize(ctx); // Fetch images and put them in the GPU
     await ctx.vaos.initialize(ctx); // Call the vertexAttribPointer's
 
+    const bufferUpdaters = bufferInitializers.map((f) => {
+      if (this.gl) {
+        return f(this.gl, ctx.buffers, ctx) || nop;
+      }
+      return nop;
+    }).filter((f) => f !== nop);
     // The context is now only partially initialized, to finish initialization
     // the custom initialize functions for each program need to be executed
     // if they exist.
@@ -267,7 +274,7 @@ export class WebGLCanvas extends globalThis.HTMLElement {
       // Place the default draw calls if they are not set
       this.createDefaultDrawCalls(this.gl, drawCallsRoot);
       // Builds the draw function and sets a render loop if one is declared:
-      await drawCallsRoot.initialize(this.gl, ctx, renderers);
+      await drawCallsRoot.initialize(this.gl, ctx, renderers, bufferUpdaters);
       // The frame update function is just a reference to its equivalent of
       // the draw calls container, which at this stage (after initialization)
       // should be created and ready to daw a frame.

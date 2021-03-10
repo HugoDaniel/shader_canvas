@@ -107,6 +107,7 @@ export class VertexAttribPointer extends globalThis.HTMLElement {
     const normalized = this.normalized;
     const stride = this.stride;
     const offset = this.offset;
+    const divisor = this.divisor;
     // Create the wrapper for the `gl.vertexAttribPointer`. Its closure will
     // have the arguments available to be passed to the WebGL counterpart.
     this.vertexAttribPointer = () => {
@@ -120,6 +121,10 @@ export class VertexAttribPointer extends globalThis.HTMLElement {
         stride,
         offset,
       );
+
+      if (divisor > 0) {
+        gl.vertexAttribDivisor(location, divisor);
+      }
     };
     // Call it right away.
     this.vertexAttribPointer();
@@ -139,7 +144,13 @@ export class VertexAttribPointer extends globalThis.HTMLElement {
       this.removeAttribute("variable");
     }
   }
-
+  /**
+   * A number specifying the instance items for this attribute.
+   * If it is greater than 0 a call to `gl.vertexAttribDivisor` is made with it.
+   **/
+  get divisor(): number {
+    return Number(this.getAttribute("divisor"));
+  }
   /**
    * A number specifying the number of components per vertex attribute.
    * Must be 1, 2, 3, or 4.

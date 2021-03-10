@@ -157,7 +157,7 @@ export class BindBuffer extends globalThis.HTMLElement {
     // get the bind function for the buffer with this src name from buffers
     this.bindBuffer = buffers.bindFunctionFor(this.src);
     this.target = this.bindBuffer();
-    for (const child of [...this.children]) {
+    for (const child of Array.from(this.children)) {
       if (child instanceof VertexAttribPointer) {
         child.initialize(gl, locations);
         this.vars.push(child.variable);
@@ -171,7 +171,7 @@ export class BindBuffer extends globalThis.HTMLElement {
       }
     }
     // Unbind the buffer
-    gl.bindBuffer(this.target, null);
+    // gl.bindBuffer(this.target, null);
   }
 }
 

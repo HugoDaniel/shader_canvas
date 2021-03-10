@@ -51,9 +51,9 @@ export class DrawLoop extends DrawCallsContainer {
   /**
    * The function that will be registered by the `requestFrame()`.
    */
-  raf = (dt: DOMHighResTimeStamp) => {
-    this.drawCalls();
+  raf = () => {
     this.intervalId = this.requestFrame();
+    this.drawCalls();
   };
   /**
    * Starts the loop, calls the function set at the `requestFrame` for the loop
@@ -109,9 +109,10 @@ export class DrawLoop extends DrawCallsContainer {
     gl: WebGL2RenderingContext,
     context: WebGLCanvasContext,
     renderers: Map<string, ProgramRenderer>,
+    updaters: (() => void)[],
   ) {
     await this.whenLoaded;
-    await this.buildDrawFunction(gl, context, renderers);
+    await this.buildDrawFunction(gl, context, renderers, updaters);
     // prepend the functions for the modules that have declared a "onFrame"
     // function
     for (const functions of context.modulesFunctions.values()) {
@@ -120,7 +121,9 @@ export class DrawLoop extends DrawCallsContainer {
         this.drawFunctions.unshift(() => f(context));
       }
     }
+    this.gl = gl;
   }
+  gl: WebGL2RenderingContext | undefined;
 
   /**
    * Sets the number of Frames Per Second (FPS) that the loop should run.

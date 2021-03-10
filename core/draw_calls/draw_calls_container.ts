@@ -66,9 +66,10 @@ export class DrawCallsContainer extends CanMerge {
     gl: WebGL2RenderingContext,
     context: WebGLCanvasContext,
     renderers: Map<string, ProgramRenderer>,
+    updaters: (() => void)[],
   ) {
     // Get children and create a function of draw commands to be called
-    for (const child of [...this.children]) {
+    for (const child of Array.from(this.children)) {
       if (child instanceof ClearColor) {
         child.initialize(gl);
         this.drawFunctions.push(child.clearColor);
@@ -101,6 +102,9 @@ export class DrawCallsContainer extends CanMerge {
     }
     // Create draw function
     this.drawCalls = () => {
+      for (let i = 0; i < updaters.length; i++) {
+        updaters[i]();
+      }
       for (let i = 0; i < this.drawFunctions.length; i++) {
         this.drawFunctions[i]();
       }

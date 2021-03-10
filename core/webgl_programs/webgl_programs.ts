@@ -205,6 +205,7 @@ export class WebGLPrograms extends ShaderCanvasContainer<CreateProgram> {
         // locations can be read from)
         const initializerArgs = {
           uniformLocations: program.uniformLocations,
+          attributeLocations: this.locations.attributes,
           ctx,
           program,
           programName: program.name,
