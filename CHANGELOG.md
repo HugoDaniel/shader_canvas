@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Support for buffer initializer functions in the ShaderCanvas API.
 - Support for multiple `<code>` tags in shaders.
 - Support for `<code-before>` and `<code-after>` tags in shaders.
 - It is possible to start and stop a loop through the ShaderCanvas instance API.
