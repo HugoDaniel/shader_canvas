@@ -112,7 +112,7 @@ Licensed under the EUPL -->
                                 let transform = zoomT;
                                 if (oldPanX !== panX || oldPanY !== panY) {
                                     // Apply the translation affine transformation matrix
-                                    const factor = 1 / zoom;
+                                    const factor = Math.PI / Math.exp(zoom);
                                     const deltaX = (panX - oldPanX) * factor;
                                     const deltaY = (panY - oldPanY) * factor;
                                     translate(transform, [deltaX, deltaY, 0.0], transform)
