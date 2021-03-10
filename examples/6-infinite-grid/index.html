@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<!-- Copyright 2021 Hugo Daniel Henriques Oliveira Gomes. All rights reserved.
+Licensed under the EUPL -->
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <link
+        href="data:image/x-icon;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQEAYAAABPYyMiAAAABmJLR0T///////8JWPfcAAAACXBIWXMAAABIAAAASABGyWs+AAAAF0lEQVRIx2NgGAWjYBSMglEwCkbBSAcACBAAAeaR9cIAAAAASUVORK5CYII="
+        rel="icon" />
+    <title>Shader Canvas New DSL Example</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+    </style>
+</head>
+
+<body>
+    <shader-canvas>
+        <new-modules>
+            <pan-zoom-2d>
+                <webgl-program-part>
+                    <vertex-shader>
+                        <code-before>
+
+                        // The values sent in this vec4 are:
+                        // (x, y, rotation, scale)
+                        uniform mat4 panZoomMatrix;
+                        </code-before>
+                    </vertex-shader>
+                </webgl-program-part>
+                <script type=module>
+                    import { ShaderCanvas } from "../../build/shader_canvas.js";
+                    import { translation, translate, scale, multiply } from "./matrix.js"
+
+                    const module = ShaderCanvas.webglModule(() => {
+                        const dpr = window.devicePixelRatio;
+                        let rotation = 0;
+                        let gestureStartRotation = 0;
+                        let gestureStartZoom = 0;
+                        let zoom = 1;
+                        let zoomSign = 1;
+                        let zoomDelta = 0;
+                        let oldZoom = 1;
+                        let panX = 0;
+                        let panY = 0;
+                        let oldPanX = 0;
+                        let oldPanY = 0;
+                        let startX;
+                        let startY;
+                        let mouseX = -1;
+                        let mouseY = -1;
+                        const wheelHandler = (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+
+                            if (e.ctrlKey) {
+                                zoom = Math.max(0.1, zoom - e.deltaY * 0.1);
+                                zoomSign = Math.sign(e.deltaY)
+                            } else {
+                                panX -= e.deltaX * 2;
+                                panY -= e.deltaY * 2;
+                            }
+                        };
+                        const mouseHandler = (e) => {
+                            mouseX = e.offsetX;
+                            mouseY = e.offsetY;
+                        };
+                        const gestureStartHandler = (e) => {
+                            e.preventDefault();
+                            startX = e.pageX - panX;
+                            startY = e.pageY - panY;
+                            gestureStartRotation = rotation;
+                            gestureStartZoom = zoom;
+                        };
+                        const gestureChangeHandler = (e) => {
+                            e.preventDefault();
+  
+                            rotation = gestureStartRotation + e.rotation;
+                            zoom = gestureStartZoom * e.scale;
+                            zoomSign = Math.sign(oldZoom - zoom)
+                            panX = e.pageX - startX;
+                            panY = e.pageY - startY;
+                        };
+                        const gestureEndHandler = (e) => e.preventDefault();
+                        window.addEventListener("mousemove", mouseHandler);
+                        window.addEventListener("wheel", wheelHandler,  { passive: false, capture: true });
+                        window.addEventListener("gesturestart", gestureStartHandler);
+                        window.addEventListener("gesturechange", gestureChangeHandler);
+                        window.addEventListener("gestureend", gestureEndHandler);
+                        let zoomT = translation([0.0, 0.0, 0.0]);
+                        return ({
+                            onUseProgram({ gl }, program) {
+                                const matrixLoc = program.uniformLocations.get("panZoomMatrix");
+                                if (!matrixLoc) return;
+                                if ((oldZoom !== zoom) || zoom === 1) {
+                                    // Apply the zoom affine transformation matrix
+                                    const centerX = mouseX * dpr;
+                                    const centerY = mouseY * dpr;
+                                    zoomDelta = Math.exp(Math.abs(zoom - oldZoom) * -zoomSign);
+                                    const matrix = translation([0.0, 0.0, 0.0]);
+                                    translate(matrix, [centerX, centerY, 0.0], matrix);
+                                    scale(matrix, [zoomDelta, zoomDelta, 0.0], matrix);
+                                    translate(matrix, [-centerX, -centerY, 0.0], matrix);
+                                    multiply(matrix, zoomT, matrix)
+                                    zoomT = matrix;
+                                    oldZoom = zoom;
+                                }
+                                let transform = zoomT;
+                                if (oldPanX !== panX || oldPanY !== panY) {
+                                    // Apply the translation affine transformation matrix
+                                    const factor = 1 / zoom;
+                                    const deltaX = (panX - oldPanX) * factor;
+                                    const deltaY = (panY - oldPanY) * factor;
+                                    translate(transform, [deltaX, deltaY, 0.0], transform)
+                                    oldPanX = panX;
+                                    oldPanY = panY;
+                                }
+                                gl.uniformMatrix4fv(matrixLoc, false, transform);
+                            },
+                        })
+                    })
+                    module.useWith("pan-zoom-2d");
+                </script>
+            </pan-zoom-2d>
+        </new-modules>
+        <!--
+            1. Add mouse translation/zoom/rotation to a single square
+            2. Draw multiple squares
+            3. Add margin between squares
+            <square-grid></square-grid>
+        -->
+        <webgl-canvas>
+            <webgl-buffers>
+                <quad-vertices>
+                    <buffer-data src="#points"></buffer-data>
+                </quad-vertices>
+                <quad-indices>
+                    <buffer-data src="#elements" target="ELEMENT_ARRAY_BUFFER"></buffer-data>
+                </quad-indices>
+                <quad-instance-data></quad-instance-data>
+            </webgl-buffers>
+            <webgl-vertex-array-objects>
+                <quad-vao>
+                    <bind-buffer src="quad-vertices">
+                        <vertex-attrib-pointer variable="position" size="4">
+                        </vertex-attrib-pointer>
+                    </bind-buffer>
+                    <bind-buffer src="quad-indices"></bind-buffer>
+                    <bind-buffer src="quad-instance-data">
+                        <vertex-attrib-pointer variable="instanceData" size="4" divisor="1">
+                        </vertex-attrib-pointer>
+                    </bind-buffer>
+                </quad-vao>
+            </webgl-vertex-array-objects>
+            <webgl-programs>
+                <lines-quad>
+                    <pan-zoom-2d></pan-zoom-2d>
+                    <vertex-shader>
+                        <code>
+                        #version 300 es
+
+                        in vec4 position;
+
+                        in vec4 instanceData;
+
+                        uniform mat4 projection;
+                        const float margin = 0.0;
+
+                        void main() {
+                            vec4 square =
+                            vec4(instanceData.z, instanceData.z, 1.0, 1.0)
+                            * position
+                            + vec4(
+                                instanceData.x * (instanceData.z + margin),
+                                instanceData.y * (instanceData.z + margin),
+                                0.0, 0.0);
+                            gl_Position = projection * panZoomMatrix * square;
+
+                        }
+                        </code>
+                    </vertex-shader>
+                    <fragment-shader>
+                        <code>
+                            #version 300 es
+
+                            precision lowp float;
+                            
+                            out vec4 outColor;
+                            
+                            void main() {
+                                outColor = vec4(0.75, 0.75, 0.75, 1.0);
+                            }
+                        </code>
+                    </fragment-shader>
+                </lines-quad>
+                <simple-quad>
+                    <pan-zoom-2d></pan-zoom-2d>
+                    <vertex-shader>
+                        <code>
+                            #version 300 es
+
+                            in vec4 position;
+
+                            in vec4 instanceData;
+
+                            uniform mat4 projection;
+
+                            flat out vec4 instance;
+
+                            void main() {
+                                vec4 square =
+                                    vec4(instanceData.z, instanceData.z, 1.0, 1.0)
+                                    * position
+                                    + vec4(
+                                        instanceData.x * (instanceData.z),
+                                        instanceData.y * (instanceData.z),
+                                        0.0, 0.0);
+                                gl_Position = projection * panZoomMatrix * square;
+                                instance = instanceData;
+                            }
+                        </code>
+                    </vertex-shader>
+                    <fragment-shader>
+                        <code>
+                            #version 300 es
+
+                            precision lowp float;
+                            
+                            out vec4 outColor;
+
+                            flat in vec4 instance;
+                            
+                            void main() {
+                                float max = 14.0;
+                                outColor = vec4(
+                                    mod(instance.x, max) / max,
+                                    mod(instance.y, max) / max,
+                                    0.5, 1.0);
+                            }
+                        </code>
+                    </fragment-shader>
+                    <script type="module">
+                        import { ShaderCanvas } from "../../build/shader_canvas.js";
+                        import { ortho } from "./matrix.js"
+
+                        const size = 12;
+                        const horizontalSquares = Math.ceil(window.innerWidth / size);
+                        const verticalSquares = Math.ceil(window.innerHeight / size);
+                        const instances = horizontalSquares * verticalSquares;
+                        console.log('INSTANCES', instances, `${window.innerWidth}x${window.innerHeight}->${horizontalSquares}x${verticalSquares}`);
+                        // Set instance count
+                        for (const drawElem of document.querySelectorAll("draw-vao")) {
+                            drawElem.setAttribute("instanceCount", instances)
+                        }
+
+                        ShaderCanvas.initializeBuffers((gl, buffers) => {
+                            const buffer = buffers.content.get("quad-instance-data");
+                            buffer.bindBuffer();
+                            const instanceData = [];
+                            const w = gl.canvas.clientWidth;
+                            const h = gl.canvas.clientHeight;
+                            const cols = Math.ceil(w / (size * window.devicePixelRatio));
+                            for (let i = 0; i < instances; i++) {
+                                const x = i % cols;
+                                instanceData.push(x);
+                                const y = Math.floor(i / cols);
+                                instanceData.push(y);
+                                const scale = size * window.devicePixelRatio;
+                                instanceData.push(scale);
+                                const rot = 0;
+                                instanceData.push(rot);
+                            }
+                            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(instanceData), gl.STATIC_DRAW)
+                        })
+                        const p = ShaderCanvas.createProgram((gl, { uniformLocations, ctx }) => {
+                            gl.uniformMatrix4fv(uniformLocations.get("projection"), false,
+                                ortho(0, gl.canvas.clientWidth, gl.canvas.clientHeight, 0, -1, 1));
+                        })
+
+                        p.useWith("simple-quad")
+                        p.useWith("lines-quad")
+                    </script>
+                </simple-quad>
+            </webgl-programs>
+            <draw-calls>
+                <viewport-transform x="0" y="0"></viewport-transform>
+                <clear-color red="0.5" green="0.2" blue="0.4" alpha="1"></clear-color>
+
+                <clear-flags mask="COLOR_BUFFER_BIT"></clear-flags>
+                <draw-loop>
+                    <!--
+                    <use-program src="simple-quad">
+                        <draw-vao src="quad-vao" mode="TRIANGLE_STRIP" count="5" type="UNSIGNED_SHORT">
+                        </draw-vao>
+                        <draw-vao src="quad-vao" mode="TRIANGLE_STRIP" count="5" type="UNSIGNED_SHORT"></draw-vao>
+                        <draw-vao src="quad-vao" mode="TRIANGLE_STRIP" count="5" type="UNSIGNED_SHORT"></draw-vao>
+                        <draw-vao src="quad-vao" mode="TRIANGLE_STRIP" count="5" type="UNSIGNED_SHORT"></draw-vao>
+                        <draw-vao src="quad-vao" mode="TRIANGLE_STRIP" count="5" type="UNSIGNED_SHORT"></draw-vao>
+                        <draw-vao src="quad-vao" mode="TRIANGLE_STRIP" count="5" type="UNSIGNED_SHORT"></draw-vao>
+                        <draw-vao src="quad-vao" mode="TRIANGLE_STRIP" count="5" type="UNSIGNED_SHORT"></draw-vao>
+                    </use-program>
+                    -->
+                    <use-program src="lines-quad">
+                        <draw-vao src="quad-vao" mode="LINE_STRIP" count="5" type="UNSIGNED_SHORT">
+                            <div id="points" style="display: none">
+                                [
+                                0.0, 0.0, 0.0, 1.0,
+                                1.0, 0.0, 0.0, 1.0,
+                                1.0, 1.0, 0.0, 1.0,
+                                0.0, 1.0, 0.0, 1.0]
+                            </div>
+                            <div id="elements" style="display: none">
+                                [ 0, 1, 2, 3, 0 ]
+                            </div>
+
+                        </draw-vao>
+                    </use-program>
+                </draw-loop>
+            </draw-calls>
+        </webgl-canvas>
+    </shader-canvas>
+    <!--
+            <div id="points" style="display: none">
+        [0.0, 0.0, 0.0, 1.0,
+        1.0, 1.0, 0.0, 1.0,
+        1.0, 0.0, 0.0, 1.0,
+        0.0, 1.0, 0.0, 1.0]
+    </div>
+
+        <div id="elements" style="display: none">
+            [ 0, 1, 2, 3, 1, 0 ]
+        </div>
+    -->
+    <script type="module">
+        import { ShaderCanvas } from "../../build/shader_canvas.js";
+        window.addEventListener("load", () => {
+            let c = document.querySelector("shader-canvas");
+            if (c instanceof ShaderCanvas) {
+                c.initialize().then(() => {
+                    c.draw()
+                })
+            }
+        })
+    </script>
+</body>
+
+</html>
