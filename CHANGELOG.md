@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- New `ShaderCanvas.getModuleState()` function that receives a module name and
+  returns the result of calling its corresponding `getState()` function.
+- The `ShaderCanvas.webglModule` API function now supports a `getState()`
+  function to be present in the functions objects it returns. This function 
+  is used to return any object for other modules or programs.
 - Support for buffer initializer functions in the ShaderCanvas API.
 - Support for multiple `<code>` tags in shaders.
 - Support for `<code-before>` and `<code-after>` tags in shaders.

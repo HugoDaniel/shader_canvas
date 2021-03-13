@@ -285,6 +285,14 @@ export class ShaderCanvas extends CanHaveModules {
   private static modulesFunctions = new Map<string, ModulesFunctions>();
 
   /**
+   * Calls the module `getState` function. Returns undefined if no module
+   * is found with that name or if the `getState` for the module was not
+   * defined.
+   */
+  static getModuleState(moduleName: string) {
+    return this.modulesFunctions.get(moduleName)?.getState?.();
+  }
+  /**
    * Promise that resolves when all dependencies have a tag in the
    * customElements global Web Components registry.
    * 
