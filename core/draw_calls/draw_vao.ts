@@ -179,7 +179,13 @@ export class DrawVAO extends globalThis.HTMLElement {
       if (instances > 0) {
         this.drawVao = () => {
           bindVao();
-          gl.drawElementsInstanced(mode, count, type, offset, instances);
+          gl.drawElementsInstanced(
+            mode,
+            count,
+            type,
+            offset,
+            this.instanceCount,
+          );
         };
       } else {
         this.drawVao = () => {
@@ -191,7 +197,7 @@ export class DrawVAO extends globalThis.HTMLElement {
       if (instances > 0) {
         this.drawVao = () => {
           bindVao();
-          gl.drawArraysInstanced(mode, first, count, instances);
+          gl.drawArraysInstanced(mode, first, count, this.instanceCount);
         };
       } else {
         this.drawVao = () => {

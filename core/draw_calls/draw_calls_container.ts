@@ -14,6 +14,16 @@ import { WebGLCanvasContext } from "../webgl_canvas/context.ts";
 import { ProgramRenderer } from "../common/program_class.ts";
 import { CullFace } from "./cull_face.ts";
 import { CanMerge } from "../new_modules/can_merge.ts";
+import {
+  SetUniform1fv,
+  SetUniform1iv,
+  SetUniform2fv,
+  SetUniform2iv,
+  SetUniform3fv,
+  SetUniform3iv,
+  SetUniform4fv,
+  SetUniform4iv,
+} from "./set_uniform.ts";
 
 /**
  * The draw calls container is responsible to create the render function
@@ -32,6 +42,14 @@ export const dependencies = [
   ViewportTransformation,
   UseProgram,
   DrawVAO,
+  SetUniform1iv,
+  SetUniform2iv,
+  SetUniform3iv,
+  SetUniform4iv,
+  SetUniform1fv,
+  SetUniform2fv,
+  SetUniform3fv,
+  SetUniform4fv,
 ];
 
 /**

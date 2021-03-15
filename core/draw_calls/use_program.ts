@@ -6,11 +6,32 @@ import type { WebGLCanvasContext } from "../webgl_canvas/context.ts";
 import { CreateProgram } from "../webgl_programs/create_program.ts";
 import { ActiveTexture } from "./active_texture.ts";
 import { DrawVAO } from "./draw_vao.ts";
+import {
+  SetUniform,
+  SetUniform1fv,
+  SetUniform1iv,
+  SetUniform2fv,
+  SetUniform2iv,
+  SetUniform3fv,
+  SetUniform3iv,
+  SetUniform4fv,
+  SetUniform4iv,
+} from "./set_uniform.ts";
 /**
  * Inside the UseProgram a drawVAO must exist for it to be drawn.
  * This array sets the dependencies for the UseProgram.
  */
-const dependsOn = [DrawVAO];
+const dependsOn = [
+  DrawVAO,
+  SetUniform1iv,
+  SetUniform2iv,
+  SetUniform3iv,
+  SetUniform4iv,
+  SetUniform1fv,
+  SetUniform2fv,
+  SetUniform3fv,
+  SetUniform4fv,
+];
 
 /**
  * UseProgram is a Web Component for a tag that represents the
@@ -149,6 +170,7 @@ export class UseProgram extends globalThis.HTMLElement {
     if (renderFunction) {
       this.drawCalls.push(renderFunction);
     }
+
     // Get draw function for each child instance and put it in the
     // `drawCalls` array.
     for (const child of [...this.children]) {
@@ -156,6 +178,9 @@ export class UseProgram extends globalThis.HTMLElement {
         child.initialize(gl, context);
         this.drawCalls.push(child.drawVao);
       } else if (child instanceof ActiveTexture) {
+        await child.initialize(gl, context, this.program);
+        this.drawCalls = this.drawCalls.concat(child.drawCalls);
+      } else if (child instanceof SetUniform) {
         await child.initialize(gl, context, this.program);
         this.drawCalls = this.drawCalls.concat(child.drawCalls);
       } else {
