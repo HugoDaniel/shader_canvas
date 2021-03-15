@@ -113,7 +113,6 @@ Licensed under the EUPL -->
                                     const centerX = mouseX * dpr;
                                     const centerY = mouseY * dpr;
                                     zoomDelta = Math.exp(Math.abs(zoom - oldZoom) * -zoomSign);
-                                    // zoomDelta = 1.0 + zoom - oldZoom;
                                     const matrix = translation([0.0, 0.0, 0.0]);
                                     translate(matrix, [centerX, centerY, 0.0], matrix);
                                     scale(matrix, [zoomDelta, zoomDelta, 0.0], matrix);
@@ -153,11 +152,6 @@ Licensed under the EUPL -->
                 </script>
             </pan-zoom-2d>
         </new-modules>
-        <!--
-            1. Add mouse translation/zoom/rotation to a single square
-            2. Draw multiple squares
-            3. Add margin between squares
-        -->
         <webgl-canvas>
             <webgl-buffers>
                 <quad-vertices>
@@ -195,16 +189,12 @@ Licensed under the EUPL -->
                             precision lowp float;
     
                             in vec4 position;
-                            uniform vec4 clipDelta;
     
                             in vec4 instanceData;
                             in vec4 instanceScene;
     
-                            uniform mat4 projection;
-                            uniform vec2 screenRes;
+                            uniform mat4 projection;    
     
-    
-                            out vec2 pos;
                             out float sceneColorId;
     
                             void main() {
@@ -235,13 +225,11 @@ Licensed under the EUPL -->
 
                             precision mediump float;
                             
-                            // uniform vec4 scene[];
                             uniform float isLines;
                             out vec4 outColor;
-                            in vec2 pos;
                             in float sceneColorId;
                             void main() {
-                                vec4 color = vec4(pos, 0.0, 0.0);
+                                vec4 color = vec4(0.0, 0.0, 0.0, 0.0);
                                 if (sceneColorId == 1.0) {
                                     color = vec4(0.75, 0.25, 0.25, 1.0);
                                 } else if(sceneColorId == 2.0) {
@@ -266,6 +254,7 @@ Licensed under the EUPL -->
                         // APP STATE MOCK //
                         ////////////////////
                         const appState = [
+                            // [x, y, colorId, 0]
                             [0, 0, 5, 0],
                             [1, 1, 1, 0],
                             [1, 2, 2, 0],
@@ -275,8 +264,6 @@ Licensed under the EUPL -->
                             [5, 0, 3, 0],
                             [10, 2, 2, 0],
                             [31, 2, 5, 0],
-                            // [-10, -10, 3, 0],
-                            // [10, -10, 3, 0],
                         ];
                         const gridSettings = new Float32Array([
                             0, 0, 0, 0
@@ -296,54 +283,20 @@ Licensed under the EUPL -->
                         const horizontalSquares = Math.ceil((w / dpr) / size) + padding;
                         const verticalSquares = Math.ceil((h / dpr) / size) + padding;
                         const instances = horizontalSquares * verticalSquares;
-                        console.log('INSTANCES', instances);
                         const dim = 4; // Matrix dimension
                         const instanceData = new Float32Array(instances * dim);
                         const instanceScene = new Float32Array(instances * dim);
                         const cols = Math.ceil(w / (size * dpr)) + padding;
                         const dprSize = size * dpr;
-                        const precision = (n) => Math.round(4096 * n) / 4096;
-                        // const precision = (n) => n
-
-                        function adjustment(size, _scale, screenRes, origin) {
-                            // Grid item size in UV coords
-                            // vec2 uvSize = vec2(2.0 * size / screenRes.x * scale, 2.0 * size / screenRes.y * scale);
-                            const scale = Math.round(1 * _scale) / 1;
-                            const uvSize = [
-                                precision(size * scale / screenRes[0]),
-                                precision(size * scale / screenRes[1]),
-                            ];
-                            // Grid pan in UV coords
-                            // vec2 uvPan = vec2(2.0, -2.0) * originAt.xy / screenRes.xy;
-                            const uvPan = [
-                                2.0 * precision(origin[0]) / precision(screenRes[0]),
-                                -2.0 * precision(origin[1]) / precision(screenRes[1]),
-                            ];
-                            // Grid delta pan in UV coords
-                            // vec2 uvDeltaPan = mod(uvPan, uvSize);
-                            const uvDeltaPan = [
-                                precision(uvPan[0] % uvSize[0]),
-                                precision(uvPan[1] % uvSize[1]),
-                            ];
-                            // vec4((uvPan + (uvSize - uvDeltaPan)), 0.0, 0.0);
-                            const result = [
-                                precision(uvPan[0] - (uvSize[0] - uvDeltaPan[0])),
-                                precision(uvPan[1] - (uvSize[1] - uvDeltaPan[1])),
-                                0, 0
-                            ];
-                            return result;
-                        }
-                        let oldOffsetX = 0;
-                        let oldOffsetY = 0;
-                        let offset = [0, 0, 0, 0];
-                        let oldX = 0;
-                        let oldY = 0;
 
                         // its real indexes(x, y, fillId, fillRot)
                         function fillInstanceScene(gl, buffer, state = { originAt: [0, 0, 1] }) {
                             const [padX, padY, scale] = state.originAt;
-                            // ^ numero de pixeis de distancia em relação à origem (com DPR)
-                            // -170 significa que a origem está 170/DPR pixeis para a esquerda
+                            // padX, padY represent the number of pixels being
+                            // panned. It can be seen as the distance of the
+                            // current viewport towards the origin (with DPR).
+                            // i.e. -170px in padX means that the origin is at
+                            // 170/DPR pixels to the left. 
 
                             const scaledSize = dprSize * scale;
                             const sceneDeltaX = Math.floor(padX / scaledSize);
@@ -358,6 +311,10 @@ Licensed under the EUPL -->
                                 instanceScene[dim * i + 0] = sceneX;
                                 instanceScene[dim * i + 1] = sceneY;
                                 let colorId = 0;
+                                // This is ugly, but serves the example purpose
+                                // of reading the current scene colorId.
+                                // A much better approach would use a good
+                                // appScene data structure.
                                 for (const [appX, appY, color] of appState) {
                                     if (appX === Math.floor(sceneX) && appY === Math.floor(sceneY)) {
                                         colorId = color;
@@ -370,7 +327,6 @@ Licensed under the EUPL -->
                             gl.bufferData(gl.ARRAY_BUFFER, instanceScene, gl.DYNAMIC_DRAW);
                         }
 
-                        // Instance data:  clipspace indexes(x, y, scale, padding)
                         function fillInstanceData(gl, buffer) {
                             for (let i = 0; i < instances; i++) {
                                 instanceData[dim * i + 0] = i % cols; // x
@@ -401,16 +357,8 @@ Licensed under the EUPL -->
                         })
 
                         const p = ShaderCanvas.createProgram((gl, { uniformLocations, ctx }) => {
-                            const adjustLoc = uniformLocations.get("clipDelta");
-                            const screen = [gl.canvas.clientWidth, gl.canvas.clientHeight];
-                            gl.uniform4fv(adjustLoc, offset);
-                            gl.uniform2fv(uniformLocations.get("screenRes"), screen);
-                            // gl.uniform4fv(uniformLocations.get("scene"), instanceScene);
                             gl.uniformMatrix4fv(uniformLocations.get("projection"), false,
-                                ortho(0, screen[0], screen[1], 0, -1, 1));
-                            return (() => {
-                                gl.uniform4fv(adjustLoc, offset);
-                            })
+                                ortho(0, gl.canvas.clientWidth, gl.canvas.clientHeight, 0, -1, 1));
                         });
 
                         p.useWith("infinite-grid")
@@ -425,31 +373,9 @@ Licensed under the EUPL -->
                 <draw-loop>
                     <use-program src="infinite-grid">
                         <uniform-1fv var="isLines" value="0"></uniform-1fv>
-                        <draw-vao src="quad-vao" mode="TRIANGLE_FAN" count="3" type="UNSIGNED_SHORT">
+                        <draw-vao src="quad-vao" mode="TRIANGLE_FAN" count="4" type="UNSIGNED_SHORT">
+
                             <div id="points" style="display: none">
-                                [ 0, 0, 0, 1,
-                                1, 0, 0, 1,
-                                0.5, 0.866, 0, 1
-                                ]
-                            </div>
-                            <div id="elements" style="display: none">
-                                [ 0, 1, 2, 0 ]
-                            </div>
-
-
-                        </draw-vao>
-                        <uniform-1fv var="isLines" value="1"></uniform-1fv>
-                        <draw-vao src="quad-vao" mode="LINE_STRIP" count="4" type="UNSIGNED_SHORT">
-                        </draw-vao>
-                    </use-program>
-                </draw-loop>
-            </draw-calls>
-        </webgl-canvas>
-    </shader-canvas>
-
-    <!--
-
-                                    <div id="points" style="display: none">
                                 [
                                 0.0, 0.0, 0.0, 1.0,
                                 1.0, 0.0, 0.0, 1.0,
@@ -460,21 +386,26 @@ Licensed under the EUPL -->
                                 [ 0, 1, 2, 3 ]
                             </div>
 
-                        <div id="points" style="display: none">
-                            [
-                            -1.0, 0.0, 0.0, 1.0,
-                            -0.5, 0.86602540, 0.0, 1.0,
-                            0.5, 0.86602540, 0.0, 1.0,
-                            1.0, 0.0, 0.0, 1.0,
-                            0.5, -0.86602540, 0.0, 1.0,
-                            -0.5, -0.86602540, 0.0, 1.0]
-                        </div>
-                        <div id="elements" style="display: none">
-                            [ 0, 1, 2, 3, 4, 5, 0 ]
-                        </div>
+                        </draw-vao>
+                        <uniform-1fv var="isLines" value="1"></uniform-1fv>
+                        <draw-vao src="quad-vao" mode="LINE_STRIP" count="3" type="UNSIGNED_SHORT">
+                        </draw-vao>
+                    </use-program>
+                </draw-loop>
+            </draw-calls>
+        </webgl-canvas>
+    </shader-canvas>
 
-
-
+    <!-- For triangles use these points and adjust the instance count:
+                            <div id="points" style="display: none">
+                                [ 0, 0, 0, 1,
+                                1, 0, 0, 1,
+                                0.5, 0.866, 0, 1
+                                ]
+                            </div>
+                            <div id="elements" style="display: none">
+                                [ 0, 1, 2, 0 ]
+                            </div>
     -->
     <script type="module">
         import { ShaderCanvas } from "../../build/shader_canvas.js";
