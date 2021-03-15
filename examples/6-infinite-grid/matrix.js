@@ -25,6 +25,38 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
  */
+
+/**
+ * Takes a 4-by-4 matrix and a vector with 3 entries,
+ * interprets the vector as a point, transforms that point by the matrix, and
+ * returns the result as a vector with 3 entries.
+ * @param {module:twgl/m4.Mat4} m The matrix.
+ * @param {module:twgl/v3.Vec3} v The point.
+ * @param {module:twgl/v3.Vec3} [dst] optional vec3 to store result. If not passed a new one is created.
+ * @return {module:twgl/v3.Vec3} The transformed point.
+ * @memberOf module:twgl/m4
+ */
+export function transformPoint(m, v, dst) {
+  dst = dst || [0, 0, 0];
+  const v0 = v[0];
+  const v1 = v[1];
+  const v2 = v[2];
+  const d =
+    v0 * m[0 * 4 + 3] + v1 * m[1 * 4 + 3] + v2 * m[2 * 4 + 3] + m[3 * 4 + 3];
+
+  dst[0] =
+    (v0 * m[0 * 4 + 0] + v1 * m[1 * 4 + 0] + v2 * m[2 * 4 + 0] + m[3 * 4 + 0]) /
+    d;
+  dst[1] =
+    (v0 * m[0 * 4 + 1] + v1 * m[1 * 4 + 1] + v2 * m[2 * 4 + 1] + m[3 * 4 + 1]) /
+    d;
+  dst[2] =
+    (v0 * m[0 * 4 + 2] + v1 * m[1 * 4 + 2] + v2 * m[2 * 4 + 2] + m[3 * 4 + 2]) /
+    d;
+
+  return dst;
+}
+
 /**
  * Creates a 4-by-4 matrix which translates by the given vector v.
  * @param {module:twgl/v3.Vec3} v The vector by

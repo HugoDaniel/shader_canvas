@@ -26,15 +26,17 @@ Licensed under the EUPL -->
                     <vertex-shader>
                         <code-before>
 
-                        // The values sent in this vec4 are:
-                        // (x, y, rotation, scale)
+                        // The values sent in this vec3 are:
+                        // (x, y, scale)
+                        uniform vec3 originAt;
                         uniform mat4 panZoomMatrix;
                         </code-before>
                     </vertex-shader>
                 </webgl-program-part>
                 <script type=module>
                     import { ShaderCanvas } from "../../build/shader_canvas.js";
-                    import { translation, translate, scale, multiply } from "./matrix.js"
+                    import { transformPoint, translation, translate, scale, multiply } from "./matrix.js"
+                    const precision = (n) => parseFloat(n.toFixed(2))
 
                     const module = ShaderCanvas.webglModule(() => {
                         const dpr = window.devicePixelRatio;
@@ -66,8 +68,8 @@ Licensed under the EUPL -->
                             }
                         };
                         const mouseHandler = (e) => {
-                            mouseX = e.offsetX;
-                            mouseY = e.offsetY;
+                            mouseX = e.clientX;
+                            mouseY = e.clientY;
                         };
                         const gestureStartHandler = (e) => {
                             e.preventDefault();
@@ -92,15 +94,26 @@ Licensed under the EUPL -->
                         window.addEventListener("gesturechange", gestureChangeHandler);
                         window.addEventListener("gestureend", gestureEndHandler);
                         let zoomT = translation([0.0, 0.0, 0.0]);
+                        let totalPanZoom = [0, 0, 1];
+                        let isUpdateNeeded = true;
+
                         return ({
+                            getState() {
+                                return (
+                                    { matrix: zoomT,
+                                      originAt: totalPanZoom
+                                    })
+                            },
                             onUseProgram({ gl }, program) {
                                 const matrixLoc = program.uniformLocations.get("panZoomMatrix");
+                                const originLoc = program.uniformLocations.get("originAt");
                                 if (!matrixLoc) return;
                                 if ((oldZoom !== zoom) || zoom === 1) {
                                     // Apply the zoom affine transformation matrix
                                     const centerX = mouseX * dpr;
                                     const centerY = mouseY * dpr;
                                     zoomDelta = Math.exp(Math.abs(zoom - oldZoom) * -zoomSign);
+                                    // zoomDelta = 1.0 + zoom - oldZoom;
                                     const matrix = translation([0.0, 0.0, 0.0]);
                                     translate(matrix, [centerX, centerY, 0.0], matrix);
                                     scale(matrix, [zoomDelta, zoomDelta, 0.0], matrix);
@@ -108,6 +121,7 @@ Licensed under the EUPL -->
                                     multiply(matrix, zoomT, matrix)
                                     zoomT = matrix;
                                     oldZoom = zoom;
+                                    isUpdateNeeded = true;
                                 }
                                 let transform = zoomT;
                                 if (oldPanX !== panX || oldPanY !== panY) {
@@ -115,11 +129,23 @@ Licensed under the EUPL -->
                                     const factor = Math.PI / Math.exp(zoom);
                                     const deltaX = (panX - oldPanX) * factor;
                                     const deltaY = (panY - oldPanY) * factor;
-                                    translate(transform, [deltaX, deltaY, 0.0], transform)
+                                    translate(transform, [deltaX, deltaY, 0.0], transform);
                                     oldPanX = panX;
                                     oldPanY = panY;
+                                    isUpdateNeeded = true;
                                 }
-                                gl.uniformMatrix4fv(matrixLoc, false, transform);
+                                if (isUpdateNeeded) {
+                                    totalPanZoom = [0, 0, 0];
+                                    const identity = translation(totalPanZoom);
+                                    transformPoint(zoomT, totalPanZoom, totalPanZoom);
+                                    multiply(identity, zoomT, identity);
+                                    totalPanZoom[2] = identity[0]; // real zoom
+                                    if (originLoc) {
+                                        gl.uniform3fv(originLoc, totalPanZoom);
+                                    }
+                                    gl.uniformMatrix4fv(matrixLoc, false, transform);
+                                    isUpdateNeeded = false;
+                                }
                             },
                         })
                     })
@@ -131,7 +157,6 @@ Licensed under the EUPL -->
             1. Add mouse translation/zoom/rotation to a single square
             2. Draw multiple squares
             3. Add margin between squares
-            <square-grid></square-grid>
         -->
         <webgl-canvas>
             <webgl-buffers>
@@ -142,6 +167,7 @@ Licensed under the EUPL -->
                     <buffer-data src="#elements" target="ELEMENT_ARRAY_BUFFER"></buffer-data>
                 </quad-indices>
                 <quad-instance-data></quad-instance-data>
+                <quad-instance-scene></quad-instance-scene>
             </webgl-buffers>
             <webgl-vertex-array-objects>
                 <quad-vao>
@@ -154,73 +180,52 @@ Licensed under the EUPL -->
                         <vertex-attrib-pointer variable="instanceData" size="4" divisor="1">
                         </vertex-attrib-pointer>
                     </bind-buffer>
+                    <bind-buffer src="quad-instance-scene">
+                        <vertex-attrib-pointer variable="instanceScene" size="4" divisor="1">
+                        </vertex-attrib-pointer>
+                    </bind-buffer>
                 </quad-vao>
             </webgl-vertex-array-objects>
             <webgl-programs>
-                <lines-quad>
+                <infinite-grid>
                     <pan-zoom-2d></pan-zoom-2d>
                     <vertex-shader>
                         <code>
-                        #version 300 es
-
-                        in vec4 position;
-
-                        in vec4 instanceData;
-
-                        uniform mat4 projection;
-                        const float margin = 0.0;
-
-                        void main() {
-                            vec4 square =
-                            vec4(instanceData.z, instanceData.z, 1.0, 1.0)
-                            * position
-                            + vec4(
-                                instanceData.x * (instanceData.z + margin),
-                                instanceData.y * (instanceData.z + margin),
-                                0.0, 0.0);
-                            gl_Position = projection * panZoomMatrix * square;
-
-                        }
-                        </code>
-                    </vertex-shader>
-                    <fragment-shader>
-                        <code>
                             #version 300 es
-
                             precision lowp float;
-                            
-                            out vec4 outColor;
-                            
-                            void main() {
-                                outColor = vec4(0.75, 0.75, 0.75, 1.0);
-                            }
-                        </code>
-                    </fragment-shader>
-                </lines-quad>
-                <simple-quad>
-                    <pan-zoom-2d></pan-zoom-2d>
-                    <vertex-shader>
-                        <code>
-                            #version 300 es
-
+    
                             in vec4 position;
-
+                            uniform vec4 clipDelta;
+    
                             in vec4 instanceData;
-
+                            in vec4 instanceScene;
+    
                             uniform mat4 projection;
-
-                            flat out vec4 instance;
-
+                            uniform vec2 screenRes;
+    
+    
+                            out vec2 pos;
+                            out float sceneColorId;
+    
                             void main() {
-                                vec4 square =
-                                    vec4(instanceData.z, instanceData.z, 1.0, 1.0)
+                                float size = instanceData.z;
+                                float padding = instanceData.w / 2.0; // in indexes/cols
+                                float xIndex = instanceScene.x; //  - padding;
+                                float yIndex = instanceScene.y; //  - padding;
+
+                                vec4 vertex =
+                                    vec4(size, size, 1.0, 1.0)
                                     * position
                                     + vec4(
-                                        instanceData.x * (instanceData.z),
-                                        instanceData.y * (instanceData.z),
+                                        xIndex * size,
+                                        yIndex * size,
                                         0.0, 0.0);
-                                gl_Position = projection * panZoomMatrix * square;
-                                instance = instanceData;
+
+                                vec4 transformedVertex = panZoomMatrix * vertex;
+                                vec4 projected = projection * transformedVertex;
+
+                                gl_Position = projected;
+                                sceneColorId = instanceScene.z;
                             }
                         </code>
                     </vertex-shader>
@@ -228,18 +233,28 @@ Licensed under the EUPL -->
                         <code>
                             #version 300 es
 
-                            precision lowp float;
+                            precision mediump float;
                             
+                            // uniform vec4 scene[];
+                            uniform float isLines;
                             out vec4 outColor;
-
-                            flat in vec4 instance;
-                            
+                            in vec2 pos;
+                            in float sceneColorId;
                             void main() {
-                                float max = 14.0;
-                                outColor = vec4(
-                                    mod(instance.x, max) / max,
-                                    mod(instance.y, max) / max,
-                                    0.5, 1.0);
+                                vec4 color = vec4(pos, 0.0, 0.0);
+                                if (sceneColorId == 1.0) {
+                                    color = vec4(0.75, 0.25, 0.25, 1.0);
+                                } else if(sceneColorId == 2.0) {
+                                    color = vec4(0.35, 0.75, 0.25, 1.0);
+                                } else if(sceneColorId == 3.0) {
+                                    color = vec4(0.35, 0.25, 0.75, 1.0);
+                                } else if(sceneColorId == 4.0) {
+                                    color = vec4(0.75, 0.8, 0.25, 1.0);
+                                } else if (sceneColorId == 5.0) {
+                                    color = vec4(0.1, 0.2, 0.3, 1.0);
+                                }
+                                outColor = isLines * vec4(0.2, 0.2, 0.1, 1.0)
+                                + (color - isLines * color);
                             }
                         </code>
                     </fragment-shader>
@@ -247,44 +262,160 @@ Licensed under the EUPL -->
                         import { ShaderCanvas } from "../../build/shader_canvas.js";
                         import { ortho } from "./matrix.js"
 
-                        const size = 12;
-                        const horizontalSquares = Math.ceil(window.innerWidth / size);
-                        const verticalSquares = Math.ceil(window.innerHeight / size);
+                        ////////////////////
+                        // APP STATE MOCK //
+                        ////////////////////
+                        const appState = [
+                            [0, 0, 5, 0],
+                            [1, 1, 1, 0],
+                            [1, 2, 2, 0],
+                            [-1, -1, 3, 0],
+                            [2, 2, 4, 0],
+                            [5, 2, 1, 0],
+                            [5, 0, 3, 0],
+                            [10, 2, 2, 0],
+                            [31, 2, 5, 0],
+                            // [-10, -10, 3, 0],
+                            // [10, -10, 3, 0],
+                        ];
+                        const gridSettings = new Float32Array([
+                            0, 0, 0, 0
+                        ]);
+                        ////////////////////
+                        const drawElements = document.querySelectorAll("draw-vao");
+                        const setInstanceCount = (instanceNumber) => {
+                            for (const drawElem of drawElements) {
+                                drawElem.setAttribute("instanceCount", instanceNumber)
+                            }
+                        }
+                        const dpr = window.devicePixelRatio;
+                        const w = window.innerWidth * dpr;
+                        const h = window.innerHeight * dpr;
+                        const size = 16; // In pixels - minimum size possible when zoomed out completely
+                        const padding = 4; // Number of extra squares beyond the visible canvas
+                        const horizontalSquares = Math.ceil((w / dpr) / size) + padding;
+                        const verticalSquares = Math.ceil((h / dpr) / size) + padding;
                         const instances = horizontalSquares * verticalSquares;
-                        console.log('INSTANCES', instances, `${window.innerWidth}x${window.innerHeight}->${horizontalSquares}x${verticalSquares}`);
-                        // Set instance count
-                        for (const drawElem of document.querySelectorAll("draw-vao")) {
-                            drawElem.setAttribute("instanceCount", instances)
+                        console.log('INSTANCES', instances);
+                        const dim = 4; // Matrix dimension
+                        const instanceData = new Float32Array(instances * dim);
+                        const instanceScene = new Float32Array(instances * dim);
+                        const cols = Math.ceil(w / (size * dpr)) + padding;
+                        const dprSize = size * dpr;
+                        const precision = (n) => Math.round(4096 * n) / 4096;
+                        // const precision = (n) => n
+
+                        function adjustment(size, _scale, screenRes, origin) {
+                            // Grid item size in UV coords
+                            // vec2 uvSize = vec2(2.0 * size / screenRes.x * scale, 2.0 * size / screenRes.y * scale);
+                            const scale = Math.round(1 * _scale) / 1;
+                            const uvSize = [
+                                precision(size * scale / screenRes[0]),
+                                precision(size * scale / screenRes[1]),
+                            ];
+                            // Grid pan in UV coords
+                            // vec2 uvPan = vec2(2.0, -2.0) * originAt.xy / screenRes.xy;
+                            const uvPan = [
+                                2.0 * precision(origin[0]) / precision(screenRes[0]),
+                                -2.0 * precision(origin[1]) / precision(screenRes[1]),
+                            ];
+                            // Grid delta pan in UV coords
+                            // vec2 uvDeltaPan = mod(uvPan, uvSize);
+                            const uvDeltaPan = [
+                                precision(uvPan[0] % uvSize[0]),
+                                precision(uvPan[1] % uvSize[1]),
+                            ];
+                            // vec4((uvPan + (uvSize - uvDeltaPan)), 0.0, 0.0);
+                            const result = [
+                                precision(uvPan[0] - (uvSize[0] - uvDeltaPan[0])),
+                                precision(uvPan[1] - (uvSize[1] - uvDeltaPan[1])),
+                                0, 0
+                            ];
+                            return result;
+                        }
+                        let oldOffsetX = 0;
+                        let oldOffsetY = 0;
+                        let offset = [0, 0, 0, 0];
+                        let oldX = 0;
+                        let oldY = 0;
+
+                        // its real indexes(x, y, fillId, fillRot)
+                        function fillInstanceScene(gl, buffer, state = { originAt: [0, 0, 1] }) {
+                            const [padX, padY, scale] = state.originAt;
+                            // ^ numero de pixeis de distancia em relação à origem (com DPR)
+                            // -170 significa que a origem está 170/DPR pixeis para a esquerda
+
+                            const scaledSize = dprSize * scale;
+                            const sceneDeltaX = Math.floor(padX / scaledSize);
+                            const sceneDeltaY = Math.floor(padY / scaledSize);
+                            for (let i = 0; i < instances; i++) {
+                                const x = i % cols;
+                                const y = Math.abs(Math.floor(i / cols));
+
+                                const sceneX = x - sceneDeltaX - 1;
+                                const sceneY = y - sceneDeltaY - 1;
+
+                                instanceScene[dim * i + 0] = sceneX;
+                                instanceScene[dim * i + 1] = sceneY;
+                                let colorId = 0;
+                                for (const [appX, appY, color] of appState) {
+                                    if (appX === Math.floor(sceneX) && appY === Math.floor(sceneY)) {
+                                        colorId = color;
+                                    }
+                                }
+                                instanceScene[dim * i + 2] = colorId;
+                                instanceScene[dim * i + 3] = 0;
+                            }
+                            buffer.bindBuffer();
+                            gl.bufferData(gl.ARRAY_BUFFER, instanceScene, gl.DYNAMIC_DRAW);
+                        }
+
+                        // Instance data:  clipspace indexes(x, y, scale, padding)
+                        function fillInstanceData(gl, buffer) {
+                            for (let i = 0; i < instances; i++) {
+                                instanceData[dim * i + 0] = i % cols; // x
+                                instanceData[dim * i + 1] = Math.floor(i / cols); // y
+                                instanceData[dim * i + 2] = dprSize;
+                                instanceData[dim * i + 3] = padding;
+                            }
+                            buffer.bindBuffer();
+                            gl.bufferData(gl.ARRAY_BUFFER, instanceData, gl.STATIC_DRAW);
                         }
 
                         ShaderCanvas.initializeBuffers((gl, buffers) => {
-                            const buffer = buffers.content.get("quad-instance-data");
-                            buffer.bindBuffer();
-                            const instanceData = [];
-                            const w = gl.canvas.clientWidth;
-                            const h = gl.canvas.clientHeight;
-                            const cols = Math.ceil(w / (size * window.devicePixelRatio));
-                            for (let i = 0; i < instances; i++) {
-                                const x = i % cols;
-                                instanceData.push(x);
-                                const y = Math.floor(i / cols);
-                                instanceData.push(y);
-                                const scale = size * window.devicePixelRatio;
-                                instanceData.push(scale);
-                                const rot = 0;
-                                instanceData.push(rot);
-                            }
-                            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(instanceData), gl.STATIC_DRAW)
-                        })
-                        const p = ShaderCanvas.createProgram((gl, { uniformLocations, ctx }) => {
-                            gl.uniformMatrix4fv(uniformLocations.get("projection"), false,
-                                ortho(0, gl.canvas.clientWidth, gl.canvas.clientHeight, 0, -1, 1));
+                            const dataBuffers = [
+                                buffers.content.get("quad-instance-data"),
+                                buffers.content.get("quad-instance-scene")
+                            ];
+                            setInstanceCount(instances);
+                            fillInstanceData(gl, dataBuffers[0]);
+                            fillInstanceScene(gl, dataBuffers[1]);
+                            return (() => {
+                                const state = ShaderCanvas.getModuleState("pan-zoom-2d");
+                                if (!state.matrix || !state.originAt || !(state.matrix instanceof Float32Array) || !state.originAt instanceof Array) {
+                                    console.log('Invalid "pan-zoom-2d" state');
+                                    return;
+                                }
+                                fillInstanceScene(gl, dataBuffers[1], state);
+                            })
                         })
 
-                        p.useWith("simple-quad")
-                        p.useWith("lines-quad")
+                        const p = ShaderCanvas.createProgram((gl, { uniformLocations, ctx }) => {
+                            const adjustLoc = uniformLocations.get("clipDelta");
+                            const screen = [gl.canvas.clientWidth, gl.canvas.clientHeight];
+                            gl.uniform4fv(adjustLoc, offset);
+                            gl.uniform2fv(uniformLocations.get("screenRes"), screen);
+                            // gl.uniform4fv(uniformLocations.get("scene"), instanceScene);
+                            gl.uniformMatrix4fv(uniformLocations.get("projection"), false,
+                                ortho(0, screen[0], screen[1], 0, -1, 1));
+                            return (() => {
+                                gl.uniform4fv(adjustLoc, offset);
+                            })
+                        });
+
+                        p.useWith("infinite-grid")
                     </script>
-                </simple-quad>
+                </infinite-grid>
             </webgl-programs>
             <draw-calls>
                 <viewport-transform x="0" y="0"></viewport-transform>
@@ -292,21 +423,33 @@ Licensed under the EUPL -->
 
                 <clear-flags mask="COLOR_BUFFER_BIT"></clear-flags>
                 <draw-loop>
-                    <!--
-                    <use-program src="simple-quad">
-                        <draw-vao src="quad-vao" mode="TRIANGLE_STRIP" count="5" type="UNSIGNED_SHORT">
-                        </draw-vao>
-                        <draw-vao src="quad-vao" mode="TRIANGLE_STRIP" count="5" type="UNSIGNED_SHORT"></draw-vao>
-                        <draw-vao src="quad-vao" mode="TRIANGLE_STRIP" count="5" type="UNSIGNED_SHORT"></draw-vao>
-                        <draw-vao src="quad-vao" mode="TRIANGLE_STRIP" count="5" type="UNSIGNED_SHORT"></draw-vao>
-                        <draw-vao src="quad-vao" mode="TRIANGLE_STRIP" count="5" type="UNSIGNED_SHORT"></draw-vao>
-                        <draw-vao src="quad-vao" mode="TRIANGLE_STRIP" count="5" type="UNSIGNED_SHORT"></draw-vao>
-                        <draw-vao src="quad-vao" mode="TRIANGLE_STRIP" count="5" type="UNSIGNED_SHORT"></draw-vao>
-                    </use-program>
-                    -->
-                    <use-program src="lines-quad">
-                        <draw-vao src="quad-vao" mode="LINE_STRIP" count="5" type="UNSIGNED_SHORT">
+                    <use-program src="infinite-grid">
+                        <uniform-1fv var="isLines" value="0"></uniform-1fv>
+                        <draw-vao src="quad-vao" mode="TRIANGLE_FAN" count="3" type="UNSIGNED_SHORT">
                             <div id="points" style="display: none">
+                                [ 0, 0, 0, 1,
+                                1, 0, 0, 1,
+                                0.5, 0.866, 0, 1
+                                ]
+                            </div>
+                            <div id="elements" style="display: none">
+                                [ 0, 1, 2, 0 ]
+                            </div>
+
+
+                        </draw-vao>
+                        <uniform-1fv var="isLines" value="1"></uniform-1fv>
+                        <draw-vao src="quad-vao" mode="LINE_STRIP" count="4" type="UNSIGNED_SHORT">
+                        </draw-vao>
+                    </use-program>
+                </draw-loop>
+            </draw-calls>
+        </webgl-canvas>
+    </shader-canvas>
+
+    <!--
+
+                                    <div id="points" style="display: none">
                                 [
                                 0.0, 0.0, 0.0, 1.0,
                                 1.0, 0.0, 0.0, 1.0,
@@ -314,26 +457,24 @@ Licensed under the EUPL -->
                                 0.0, 1.0, 0.0, 1.0]
                             </div>
                             <div id="elements" style="display: none">
-                                [ 0, 1, 2, 3, 0 ]
+                                [ 0, 1, 2, 3 ]
                             </div>
 
-                        </draw-vao>
-                    </use-program>
-                </draw-loop>
-            </draw-calls>
-        </webgl-canvas>
-    </shader-canvas>
-    <!--
-            <div id="points" style="display: none">
-        [0.0, 0.0, 0.0, 1.0,
-        1.0, 1.0, 0.0, 1.0,
-        1.0, 0.0, 0.0, 1.0,
-        0.0, 1.0, 0.0, 1.0]
-    </div>
+                        <div id="points" style="display: none">
+                            [
+                            -1.0, 0.0, 0.0, 1.0,
+                            -0.5, 0.86602540, 0.0, 1.0,
+                            0.5, 0.86602540, 0.0, 1.0,
+                            1.0, 0.0, 0.0, 1.0,
+                            0.5, -0.86602540, 0.0, 1.0,
+                            -0.5, -0.86602540, 0.0, 1.0]
+                        </div>
+                        <div id="elements" style="display: none">
+                            [ 0, 1, 2, 3, 4, 5, 0 ]
+                        </div>
 
-        <div id="elements" style="display: none">
-            [ 0, 1, 2, 3, 1, 0 ]
-        </div>
+
+
     -->
     <script type="module">
         import { ShaderCanvas } from "../../build/shader_canvas.js";
