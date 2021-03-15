@@ -9,7 +9,7 @@ tags.
 
 - For code distribution [deno.land](https://deno.land/x/shader_canvas) is being used.
 
-**Current version: v1.0.0**
+**Current version: v1.1.1 - Proof of concept iteration 1**
 
 ## Developer notes
 

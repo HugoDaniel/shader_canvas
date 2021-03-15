@@ -51,7 +51,7 @@ You can begin using Shader Canvas with these 3 steps.
 
 
   <script type="module">
-    import { ShaderCanvas } from "https://cdn.deno.land/shader_canvas/versions/v1.0.0/raw/build/shader_canvas.min.js";
+    import { ShaderCanvas } from "https://cdn.deno.land/shader_canvas/versions/v1.1.1/raw/build/shader_canvas.min.js";
   </script>
 </body>
 </html>
@@ -73,7 +73,7 @@ You can begin using Shader Canvas with these 3 steps.
   </shader-canvas>
 
   <script type="module">
-    import { ShaderCanvas } from "https://cdn.deno.land/shader_canvas/versions/v1.0.0/raw/build/shader_canvas.min.js";
+    import { ShaderCanvas } from "https://cdn.deno.land/shader_canvas/versions/v1.1.1/raw/build/shader_canvas.min.js";
 
     window.addEventListener("load", async () => {
       const c = document.querySelector("shader-canvas");
@@ -91,11 +91,11 @@ You can begin using Shader Canvas with these 3 steps.
 
 Only Deno is supported for now to use and bundle Shader Canvas in your project.
 
-To do that use the import from the [`deno.land`](https://deno.land/x/shader_canvas@v1.0.0)
+To do that use the import from the [`deno.land`](https://deno.land/x/shader_canvas@v1.1.1)
 file directly:
 
 ```typescript
-import { ShaderCanvas } from "https://deno.land/x/shader_canvas@v1.0.0/shader_canvas.ts"
+import { ShaderCanvas } from "https://deno.land/x/shader_canvas@v1.1.1/shader_canvas.ts"
 
 // your project code ...
 ```
@@ -626,7 +626,7 @@ The `<clear-color>` tag is meant to be used as a child of the
 
 ### Attributes of `<ClearFlags>`
 
-#### _[flags](https://github.com/HugoDaniel/shader_canvas/blob/main/core/draw_calls/clear_flags.ts#L34)_
+#### _[mask](https://github.com/HugoDaniel/shader_canvas/blob/main/core/draw_calls/clear_flags.ts#L34)_
 
 A string that sets the "mask" of the clear method.
 
@@ -1074,7 +1074,7 @@ The `<draw-loop>` tag is meant to be used as a child of the
 
 ### Attributes of `<DrawLoop>`
 
-#### _[fps](https://github.com/HugoDaniel/shader_canvas/blob/main/core/draw_calls/draw_loop.ts#L131)_
+#### _[fps](https://github.com/HugoDaniel/shader_canvas/blob/main/core/draw_calls/draw_loop.ts#L134)_
 
 Sets the number of Frames Per Second (FPS) that the loop should run.
 It defaults to using the `window.requestAnimationFrame`.
@@ -1087,12 +1087,18 @@ This attribute is a number.
 ## `<draw-vao>` {#DrawVAO}
 
 This tag is equivalent to either the [`gl.drawElements()`](https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/drawElements)
-or the [`gl.drawArrays()`](https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/drawArrays)
+or the [`gl.drawArrays()`](https://developer.mozilla.org/en-US/docs/Web/API/WebGLRenderingContext/drawArrays).
+
+If the "instanceCount" attribute is set, then it makes use
+of the [`gl.drawElementsInstanced()`](https://developer.mozilla.org/en-US/docs/Web/API/WebGL2RenderingContext/drawElementsInstanced)
+or the [`gl.drawArraysInstanced()`](https://developer.mozilla.org/en-US/docs/Web/API/WebGL2RenderingContext/drawArraysInstanced)
 functions.
 
 It searches for the Vertex Array Object specified by the `src` attribute
 and calls `gl.drawElements` if it has an element array buffer, or 
 `gl.drawArrays` otherwise.
+(or `gl.drawElementsInstanced()`/`gl.drawArraysInstanced()` if
+"instanceCount" is set)
 
 The number of items to draw can be specified in the "count" attribute,
 but these also get calculated automatically by the vertex array buffer 
@@ -1107,13 +1113,13 @@ The `<draw-vao>` tag is meant to be used within the
 
 ### Attributes of `<DrawVAO>`
 
-#### _[src](https://github.com/HugoDaniel/shader_canvas/blob/main/core/draw_calls/draw_vao.ts#L39)_
+#### _[src](https://github.com/HugoDaniel/shader_canvas/blob/main/core/draw_calls/draw_vao.ts#L45)_
 
 A string that references a vertex array object name.
 
 This must be the name of a tag available in the
 `<webgl-vertex-array-objects>` container.
-#### _[mode](https://github.com/HugoDaniel/shader_canvas/blob/main/core/draw_calls/draw_vao.ts#L56)_
+#### _[mode](https://github.com/HugoDaniel/shader_canvas/blob/main/core/draw_calls/draw_vao.ts#L62)_
 
 A string that specifies the type primitive to render. 
 
@@ -1126,14 +1132,14 @@ Possible values are:
 - `"TRIANGLE_STRIP"`
 - `"TRIANGLE_FAN"`
 - `"TRIANGLES"` _(default)_
-#### _[offset](https://github.com/HugoDaniel/shader_canvas/blob/main/core/draw_calls/draw_vao.ts#L79)_
+#### _[offset](https://github.com/HugoDaniel/shader_canvas/blob/main/core/draw_calls/draw_vao.ts#L104)_
 
 A number specifying a byte offset in the element array buffer. Must be a
 valid multiple of the size of the given type.
-#### _[first](https://github.com/HugoDaniel/shader_canvas/blob/main/core/draw_calls/draw_vao.ts#L86)_
+#### _[first](https://github.com/HugoDaniel/shader_canvas/blob/main/core/draw_calls/draw_vao.ts#L111)_
 
 A number specifying the starting index in the array of vector points.
-#### _[type](https://github.com/HugoDaniel/shader_canvas/blob/main/core/draw_calls/draw_vao.ts#L97)_
+#### _[type](https://github.com/HugoDaniel/shader_canvas/blob/main/core/draw_calls/draw_vao.ts#L122)_
 
 A string specifying the type of the values in the element array buffer.
 
@@ -1196,7 +1202,7 @@ For a usable example check the
 The `<fragment-shader>` tag is meant to be used as a child of the
 [`<{{program-name}}>`](#CreateProgram) custom named tag.
 
-<em><small><a href="https://github.com/HugoDaniel/shader_canvas/blob/main/core/webgl_programs/shaders.ts#L202">View Source</a></small></em>
+<em><small><a href="https://github.com/HugoDaniel/shader_canvas/blob/main/core/webgl_programs/shaders.ts#L259">View Source</a></small></em>
 
 
 
@@ -1293,11 +1299,11 @@ The allowed children are:
 </shader-canvas>
 ```
 
-<em><small><a href="https://github.com/HugoDaniel/shader_canvas/blob/main/shader_canvas.ts#L72">View Source</a></small></em>
+<em><small><a href="https://github.com/HugoDaniel/shader_canvas/blob/main/shader_canvas.ts#L75">View Source</a></small></em>
 
 ### Attributes of `<ShaderCanvas>`
 
-#### _[width](https://github.com/HugoDaniel/shader_canvas/blob/main/shader_canvas.ts#L297)_
+#### _[width](https://github.com/HugoDaniel/shader_canvas/blob/main/shader_canvas.ts#L316)_
 
 A number that sets the width of the underlying graphics backend.
 This number is passed to the graphics backend to set its canvas dimensions.
@@ -1306,7 +1312,7 @@ It defaults to the `window.innerWidth` attribute value.
 
 A graphics backend might not follow this number exactly and use it as a
 basis to set the pixel width based on the underlying pixel ratio.
-#### _[height](https://github.com/HugoDaniel/shader_canvas/blob/main/shader_canvas.ts#L311)_
+#### _[height](https://github.com/HugoDaniel/shader_canvas/blob/main/shader_canvas.ts#L330)_
 
 A number that sets the height of the underlying graphics backend.
 Like the width, this is passed to the graphics backend to set its
@@ -1577,11 +1583,11 @@ The allowed children are:
 The `<use-program>` tag is meant to be used within the
 [`<draw-calls>`](#DrawCalls) list of actions.
 
-<em><small><a href="https://github.com/HugoDaniel/shader_canvas/blob/main/core/draw_calls/use_program.ts#L19">View Source</a></small></em>
+<em><small><a href="https://github.com/HugoDaniel/shader_canvas/blob/main/core/draw_calls/use_program.ts#L40">View Source</a></small></em>
 
 ### Attributes of `<UseProgram>`
 
-#### _[src](https://github.com/HugoDaniel/shader_canvas/blob/main/core/draw_calls/use_program.ts#L56)_
+#### _[src](https://github.com/HugoDaniel/shader_canvas/blob/main/core/draw_calls/use_program.ts#L77)_
 
 A string that references a program name.
 
@@ -1610,15 +1616,19 @@ The `<vertex-attrib-pointer>` tag is meant to be used as a child of the
 
 ### Attributes of `<VertexAttribPointer>`
 
-#### _[variable](https://github.com/HugoDaniel/shader_canvas/blob/main/core/webgl_vertex_array_objects/vertex_attrib_pointer.ts#L131)_
+#### _[variable](https://github.com/HugoDaniel/shader_canvas/blob/main/core/webgl_vertex_array_objects/vertex_attrib_pointer.ts#L136)_
 
 A string specifying the name of the variable that this data is going to be
 placed at.
-#### _[size](https://github.com/HugoDaniel/shader_canvas/blob/main/core/webgl_vertex_array_objects/vertex_attrib_pointer.ts#L147)_
+#### _[divisor](https://github.com/HugoDaniel/shader_canvas/blob/main/core/webgl_vertex_array_objects/vertex_attrib_pointer.ts#L151)_
+
+A number specifying the instance items for this attribute.
+If it is greater than 0 a call to `gl.vertexAttribDivisor` is made with it.
+#### _[size](https://github.com/HugoDaniel/shader_canvas/blob/main/core/webgl_vertex_array_objects/vertex_attrib_pointer.ts#L158)_
 
 A number specifying the number of components per vertex attribute.
 Must be 1, 2, 3, or 4.
-#### _[type](https://github.com/HugoDaniel/shader_canvas/blob/main/core/webgl_vertex_array_objects/vertex_attrib_pointer.ts#L177)_
+#### _[type](https://github.com/HugoDaniel/shader_canvas/blob/main/core/webgl_vertex_array_objects/vertex_attrib_pointer.ts#L188)_
 
 A string (GLenum) specifying the data type of each component in the array.
 
@@ -1632,11 +1642,11 @@ function does:
 - `"UNSIGNED_SHORT"`
 - `"FLOAT"` _(default)_
 - `"HALF_FLOAT"`
-#### _[offset](https://github.com/HugoDaniel/shader_canvas/blob/main/core/webgl_vertex_array_objects/vertex_attrib_pointer.ts#L192)_
+#### _[offset](https://github.com/HugoDaniel/shader_canvas/blob/main/core/webgl_vertex_array_objects/vertex_attrib_pointer.ts#L203)_
 
 A GLintptr specifying an offset in bytes of the first component in the
 vertex attribute array. Must be a multiple of the byte length of type.
-#### _[normalized](https://github.com/HugoDaniel/shader_canvas/blob/main/core/webgl_vertex_array_objects/vertex_attrib_pointer.ts#L214)_
+#### _[normalized](https://github.com/HugoDaniel/shader_canvas/blob/main/core/webgl_vertex_array_objects/vertex_attrib_pointer.ts#L225)_
 
 A boolean specifying whether integer data values should be normalized
 into a certain range when being cast to a float.
@@ -1645,7 +1655,7 @@ into a certain range when being cast to a float.
   - For types gl.UNSIGNED_BYTE and gl.UNSIGNED_SHORT, normalizes the
     values to [0, 1] if true.
   - For types gl.FLOAT and gl.HALF_FLOAT, this parameter has no effect.
-#### _[stride](https://github.com/HugoDaniel/shader_canvas/blob/main/core/webgl_vertex_array_objects/vertex_attrib_pointer.ts#L232)_
+#### _[stride](https://github.com/HugoDaniel/shader_canvas/blob/main/core/webgl_vertex_array_objects/vertex_attrib_pointer.ts#L243)_
 
 A GLsizei specifying the offset in bytes between the beginning of
 consecutive vertex attributes. Cannot be larger than 255. If stride is 0,
@@ -1705,7 +1715,7 @@ For a usable example check the
 The `<vertex-shader>` tag is meant to be used as a child of the
 [`<{{program-name}}>`](#CreateProgram) custom named tag.
 
-<em><small><a href="https://github.com/HugoDaniel/shader_canvas/blob/main/core/webgl_programs/shaders.ts#L138">View Source</a></small></em>
+<em><small><a href="https://github.com/HugoDaniel/shader_canvas/blob/main/core/webgl_programs/shaders.ts#L195">View Source</a></small></em>
 
 
 

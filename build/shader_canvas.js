@@ -93,19 +93,19 @@ class ClearStencil extends globalThis.HTMLElement {
 }
 class ClearFlags extends globalThis.HTMLElement {
     static tag = "clear-flags";
-    get flags() {
-        const maskString = this.getAttribute("flags");
+    get mask() {
+        const maskString = this.getAttribute("mask");
         if (!maskString) return [];
         return maskString.split("|").map((s)=>s.trim()
         );
     }
     clearFlags = nop;
     initialize(gl) {
-        const flags = this.flags;
+        const flags = this.mask;
         let mask = 0;
         flags.forEach((flag)=>{
             if (flag === "COLOR_BUFFER_BIT" || flag === "DEPTH_BUFFER_BIT" || flag === "STENCIL_BUFFER_BIT") {
-                mask = mask | gl[flag];
+                mask = gl[flag] | mask;
             }
         });
         this.clearFlags = ()=>gl.clear(mask)
@@ -426,6 +426,14 @@ class DrawVAO extends globalThis.HTMLElement {
     get count() {
         return Number(this.getAttribute("count"));
     }
+    set instanceCount(value) {
+        if (value) {
+            this.setAttribute("instanceCount", `${value}`);
+        }
+    }
+    get instanceCount() {
+        return Number(this.getAttribute("instanceCount"));
+    }
     get offset() {
         return Number(this.getAttribute("offset"));
     }
@@ -457,16 +465,31 @@ class DrawVAO extends globalThis.HTMLElement {
         const type = gl[this.type];
         const offset = this.offset;
         const first = this.first;
+        const instances = this.instanceCount;
         if (this.vao.hasElementArrayBuffer) {
-            this.drawVao = ()=>{
-                bindVao();
-                gl.drawElements(mode, count, type, offset);
-            };
+            if (instances > 0) {
+                this.drawVao = ()=>{
+                    bindVao();
+                    gl.drawElementsInstanced(mode, count, type, offset, this.instanceCount);
+                };
+            } else {
+                this.drawVao = ()=>{
+                    bindVao();
+                    gl.drawElements(mode, count, type, offset);
+                };
+            }
         } else {
-            this.drawVao = ()=>{
-                bindVao();
-                gl.drawArrays(mode, first, count);
-            };
+            if (instances > 0) {
+                this.drawVao = ()=>{
+                    bindVao();
+                    gl.drawArraysInstanced(mode, first, count, this.instanceCount);
+                };
+            } else {
+                this.drawVao = ()=>{
+                    bindVao();
+                    gl.drawArrays(mode, first, count);
+                };
+            }
         }
     }
 }
@@ -504,10 +527,105 @@ function readTargetMinCount(t) {
 }
 function readVAOType(value) {
     if (value === "UNSIGNED_SHORT") return value;
+    if (value === "UNSIGNED_INT") return value;
     return "UNSIGNED_BYTE";
 }
+class SetUniform extends globalThis.HTMLElement {
+    get var() {
+        return this.getAttribute("var");
+    }
+    get value() {
+        return this.getAttribute("value");
+    }
+    get format() {
+        return this.getAttribute("format");
+    }
+    name = "uniform1fv";
+    drawCalls = [];
+    initialize(gl, context, program) {
+        const variable = this.var;
+        if (!variable) {
+            console.warn("<set-uniform>: no var attribute found");
+            return;
+        }
+        const value = this.value;
+        if (!value) {
+            console.warn("<set-uniform>: no value attribute found");
+            return;
+        }
+        let arrayValue = [];
+        const parsedValue = JSON.parse(value);
+        if (!(parsedValue instanceof Array)) {
+            arrayValue.push(Number(parsedValue));
+        } else {
+            arrayValue = parsedValue.map(Number);
+        }
+        const location = program.uniformLocations.get(variable);
+        this.drawCalls.push(()=>{
+            if (!location) {
+                console.error(`<set-uniform>: Location for ${variable} not found`);
+                return;
+            }
+            gl[this.name](location, arrayValue);
+        });
+    }
+}
+class SetUniform1iv extends SetUniform {
+    static tag = "uniform-1iv";
+    name = "uniform1iv";
+}
+class SetUniform2iv extends SetUniform {
+    static tag = "uniform-2iv";
+    name = "uniform2iv";
+}
+class SetUniform3iv extends SetUniform {
+    static tag = "uniform-3iv";
+    name = "uniform3iv";
+}
+class SetUniform4iv extends SetUniform {
+    static tag = "uniform-4iv";
+    name = "uniform4iv";
+}
+class SetUniform1fv extends SetUniform {
+    static tag = "uniform-1fv";
+    name = "uniform1fv";
+}
+class SetUniform2fv extends SetUniform {
+    static tag = "uniform-2fv";
+    name = "uniform2fv";
+}
+class SetUniform3fv extends SetUniform {
+    static tag = "uniform-3fv";
+    name = "uniform3fv";
+}
+class SetUniform4fv extends SetUniform {
+    static tag = "uniform-4fv";
+    name = "uniform4fv";
+}
+[
+    SetUniform1iv,
+    SetUniform2iv,
+    SetUniform3iv,
+    SetUniform4iv,
+    SetUniform1fv,
+    SetUniform2fv,
+    SetUniform3fv,
+    SetUniform4fv, 
+].map((component)=>{
+    if (!globalThis.customElements.get(component.tag)) {
+        globalThis.customElements.define(component.tag, component);
+    }
+});
 const dependsOn1 = [
-    DrawVAO
+    DrawVAO,
+    SetUniform1iv,
+    SetUniform2iv,
+    SetUniform3iv,
+    SetUniform4iv,
+    SetUniform1fv,
+    SetUniform2fv,
+    SetUniform3fv,
+    SetUniform4fv, 
 ];
 class UseProgram extends globalThis.HTMLElement {
     static tag = "use-program";
@@ -566,6 +684,9 @@ class UseProgram extends globalThis.HTMLElement {
             } else if (child instanceof ActiveTexture) {
                 await child.initialize(gl, context, this.program);
                 this.drawCalls = this.drawCalls.concat(child.drawCalls);
+            } else if (child instanceof SetUniform) {
+                await child.initialize(gl, context, this.program);
+                this.drawCalls = this.drawCalls.concat(child.drawCalls);
             } else {
                 console.warn(`<use-program>: No valid child found in: <${child.tagName.toLocaleLowerCase()}>`);
             }
@@ -602,19 +723,8 @@ function readCullFaceMode(attrib) {
             return "BACK";
     }
 }
-const dependencies = [
-    ClearColor,
-    BlendFunc,
-    ClearDepth,
-    CullFace,
-    ClearStencil,
-    ClearFlags,
-    DepthFunc,
-    ViewportTransformation,
-    UseProgram,
-    DrawVAO, 
-];
 class CanMerge extends globalThis.HTMLElement {
+    module = "unknown";
     merge(dest, root = this) {
         if (!dest) return;
         const destChildNames = new Map([
@@ -646,13 +756,31 @@ function copyAttributes(src, dest) {
         }
     }
 }
+const dependencies = [
+    ClearColor,
+    BlendFunc,
+    ClearDepth,
+    CullFace,
+    ClearStencil,
+    ClearFlags,
+    DepthFunc,
+    ViewportTransformation,
+    UseProgram,
+    DrawVAO,
+    SetUniform1iv,
+    SetUniform2iv,
+    SetUniform3iv,
+    SetUniform4iv,
+    SetUniform1fv,
+    SetUniform2fv,
+    SetUniform3fv,
+    SetUniform4fv, 
+];
 class DrawCallsContainer extends CanMerge {
     drawFunctions = [];
     drawCalls = nop;
-    async buildDrawFunction(gl, context, renderers) {
-        for (const child of [
-            ...this.children
-        ]){
+    async buildDrawFunction(gl, context, renderers, updaters) {
+        for (const child of Array.from(this.children)){
             if (child instanceof ClearColor) {
                 child.initialize(gl);
                 this.drawFunctions.push(child.clearColor);
@@ -683,8 +811,11 @@ class DrawCallsContainer extends CanMerge {
             }
         }
         this.drawCalls = ()=>{
-            for(let i = 0; i < this.drawFunctions.length; i++){
-                this.drawFunctions[i]();
+            for(let i = 0; i < updaters.length; i++){
+                updaters[i]();
+            }
+            for(let i1 = 0; i1 < this.drawFunctions.length; i1++){
+                this.drawFunctions[i1]();
             }
         };
         return this.drawCalls;
@@ -697,20 +828,36 @@ class DrawLoop extends DrawCallsContainer {
     static tag = "draw-loop";
     whenLoaded = Promise.all(dependsOn2.map((c)=>globalThis.customElements.whenDefined(c.tag)
     ));
-    rafId = -1;
-    raf = (dt)=>{
+    intervalId = -1;
+    raf = ()=>{
+        this.intervalId = this.requestFrame();
         this.drawCalls();
-        this.rafId = window.requestAnimationFrame(this.raf);
     };
     start() {
-        this.rafId = window.requestAnimationFrame(this.raf);
+        if (this.intervalId !== -1) return;
+        if (this.fps) {
+            const interval = Math.floor(1000 / this.fps);
+            this.requestFrame = ()=>setTimeout(this.raf, interval)
+            ;
+        }
+        this.intervalId = this.requestFrame();
     }
     stop() {
-        window.cancelAnimationFrame(this.rafId);
+        if (this.intervalId === -1) {
+            return;
+        }
+        if (this.fps) {
+            clearTimeout(this.intervalId);
+        } else {
+            window.cancelAnimationFrame(this.intervalId);
+        }
+        this.intervalId = -1;
     }
-    async initialize(gl, context, renderers) {
+    requestFrame = ()=>window.requestAnimationFrame(this.raf)
+    ;
+    async initialize(gl, context, renderers, updaters) {
         await this.whenLoaded;
-        await this.buildDrawFunction(gl, context, renderers);
+        await this.buildDrawFunction(gl, context, renderers, updaters);
         for (const functions of context.modulesFunctions.values()){
             if (functions.onFrame && typeof functions.onFrame === "function") {
                 const f = functions.onFrame;
@@ -718,6 +865,14 @@ class DrawLoop extends DrawCallsContainer {
                 );
             }
         }
+        this.gl = gl;
+    }
+    get fps() {
+        const value = this.getAttribute("fps");
+        if (value) {
+            return Number(value);
+        }
+        return null;
     }
 }
 [
@@ -736,17 +891,16 @@ class DrawCalls extends DrawCallsContainer {
     static tag = "draw-calls";
     whenLoaded = Promise.all(dependsOn3.map((c)=>globalThis.customElements.whenDefined(c.tag)
     ));
-    async initialize(gl, context, renderers) {
+    async initialize(gl, context, renderers, updaters) {
         await this.whenLoaded;
-        await this.buildDrawFunction(gl, context, renderers);
+        await this.buildDrawFunction(gl, context, renderers, updaters);
         const drawLoopElem = this.querySelector(DrawLoop.tag);
         if (drawLoopElem && drawLoopElem instanceof DrawLoop) {
-            await drawLoopElem.initialize(gl, context, renderers);
+            await drawLoopElem.initialize(gl, context, renderers, updaters);
             drawLoopElem.start();
         }
     }
 }
-const DrawCalls1 = DrawCalls;
 [
     DrawCalls,
     ...dependsOn3
@@ -755,6 +909,28 @@ const DrawCalls1 = DrawCalls;
         globalThis.customElements.define(component.tag, component);
     }
 });
+class ShaderCanvasContainer extends CanMerge {
+    content = new Map();
+    createContentComponentsWith = (parent)=>{
+        for (const child of [
+            ...this.children
+        ]){
+            const childName = child.tagName.toLocaleLowerCase();
+            if (!childName) {
+                throw new Error(`Unable to read ${this.tagName} child`);
+            }
+            if (!globalThis.customElements.get(childName)) {
+                const contentClass = class extends parent {
+                };
+                globalThis.customElements.define(childName, contentClass);
+                this.content.set(childName, child);
+            }
+        }
+        if (this.content.size === 0) {
+            console.error(`No valid child nodes in <${this.tagName.toLocaleLowerCase()}>`);
+        }
+    };
+}
 function parse(code) {
     const blocks = [];
     let shaderCode = code.split("\n").filter((line)=>!line.trim().startsWith("#")
@@ -779,7 +955,6 @@ function parse(code) {
         extraTypes
     }).concat(structs).map(fromPartialToFullVariable);
 }
-const parse1 = parse;
 function isGLSLVariable(value) {
     return typeof value === "object" && value !== null && "qualifier" in value && (value.qualifier === "struct" || isQualifier(value.qualifier)) && "type" in value && (value.type === "block" || value.type === "struct" || isGLSLType(value.type)) && "name" in value && typeof value.name === "string" && "amount" in value && typeof value.amount === "number" && !isNaN(value.amount) && "isInvariant" in value && typeof value.isInvariant === "boolean" && "isCentroid" in value && typeof value.isCentroid === "boolean" && "layout" in value && (value.layout === null || typeof value.layout === "string") && "precision" in value && (value.precision === null || isGLSLPrecision(value.precision));
 }
@@ -1045,33 +1220,61 @@ class ShaderCode extends globalThis.HTMLElement {
     variables = [];
     initialize() {
         this.setupCode();
+        this.appendChild(globalThis.document.createTextNode(this.code));
     }
-    hasCode = (codeTags)=>{
-        let isCodeEmpty = codeTags.length === 0;
-        for(let i = 0; i < codeTags.length; i++){
-            isCodeEmpty = isCodeEmpty || (codeTags[i].textContent?.trim().length || 0) === 0;
-        }
-        return !isCodeEmpty;
-    };
     getCode = (codeTags)=>{
         if (codeTags.length === 0) return "";
-        return (codeTags[0].textContent || "").trim();
+        return codeTags.map((code)=>(code.textContent || "").trim()
+        ).reduce((accum, value)=>`${accum}\n${value}`
+        );
     };
+    adjustVersion(code) {
+        return this.placeLineOnTop(code, [
+            "#version "
+        ]);
+    }
+    adjustPrecision(code) {
+        return this.placeLineOnTop(code, [
+            "precision highp float;",
+            "precision mediump float;",
+            "precision lowp float;", 
+        ]);
+    }
+    placeLineOnTop(code, lookFor) {
+        const lines = code.split("\n");
+        const splitIndex = lines.findIndex((l)=>lookFor.some((words)=>l.includes(words)
+            )
+        );
+        if (splitIndex <= 0) return code;
+        return [
+            lines[splitIndex],
+            ...lines.slice(0, splitIndex),
+            ...lines.slice(splitIndex + 1), 
+        ].join("\n");
+    }
     readCode = ()=>{
-        const codeTags = this.getElementsByTagName("code");
-        if (!this.hasCode(codeTags)) {
-            throw new Error("Shader must have at least one non-empty <code> tag");
-        }
+        const codeTags = [
+            ...this.getElementsByTagName("code-before"),
+            ...this.getElementsByTagName("code"),
+            ...this.getElementsByTagName("code-after"), 
+        ];
         return this.getCode(codeTags);
     };
     setupCode = ()=>{
         this.code = this.readCode();
-        this.variables = parse1(this.code);
+        if (!this.code || this.code.length === 0 || this.code.trim().length === 0) {
+            throw new Error(`Shader must have at least one non-empty code tag\n\
+      Please ensure that there is at least one of "<code-before>", "<code>", \
+      "<code-after>"`);
+        }
+        this.code = this.adjustPrecision(this.code);
+        this.code = this.adjustVersion(this.code);
+        this.variables = parse(this.code);
     };
     loadShader(gl, type) {
         const shader = gl.createShader(type);
         if (!shader) {
-            throw new Error("Unable to create a GL Shader");
+            throw new Error("Unable to create a WebGL Shader");
         }
         gl.shaderSource(shader, this.code);
         this.shader = shader;
@@ -1098,52 +1301,12 @@ class VertexShader extends ShaderCode {
         this.loadShader(gl, gl.VERTEX_SHADER);
     }
 }
-const VertexShader1 = VertexShader;
 class FragmentShader extends ShaderCode {
     static tag = "fragment-shader";
     load(gl) {
         this.loadShader(gl, gl.FRAGMENT_SHADER);
     }
 }
-const FragmentShader1 = FragmentShader;
-class WebGLProgramPart extends CanMerge {
-    static tag = "webgl-program-part";
-    vertexCode = "";
-    fragmentCode = "";
-    mergeCode(node, codeText) {
-        if (node) {
-            const splitCode = node.textContent?.split("\n") || [];
-            let splitLineIndex = splitCode.findIndex((line)=>line.includes("precision ")
-            );
-            if (splitLineIndex === -1) {
-                splitLineIndex = splitCode.findIndex((line)=>line.includes("#version ")
-                );
-            }
-            if (splitLineIndex >= 0) {
-                node.textContent = [
-                    ...splitCode.slice(0, splitLineIndex + 1),
-                    codeText,
-                    ...splitCode.slice(splitLineIndex + 1), 
-                ].join("\n");
-            } else {
-                node.textContent = [
-                    codeText,
-                    ...splitCode
-                ].join("\n");
-            }
-        }
-    }
-    merge(dest) {
-        if (!dest) return;
-        this.vertexCode = this.querySelector(`${VertexShader1.tag} code`)?.textContent || "";
-        this.fragmentCode = this.querySelector(`${FragmentShader1.tag} code`)?.textContent || "";
-        this.mergeCode(dest.querySelector(`${VertexShader.tag} code`), this.vertexCode);
-        this.mergeCode(dest.querySelector(`${FragmentShader.tag} code`), this.fragmentCode);
-    }
-}
-const dependsOn4 = [
-    WebGLProgramPart
-];
 class Payload {
     contents = [];
     constructor(root1){
@@ -1204,8 +1367,10 @@ class CreateModule extends globalThis.HTMLElement {
     }
     initialize({ payload , destinationRoot , payloadChildFilter , destinationChooser  }) {
         const nodes = payload.connectContents(this, payloadChildFilter);
+        let didMerge = false;
         for (const node of nodes){
             if (node instanceof CanMerge) {
+                node.module = this.nodeName.toLowerCase();
                 if (destinationChooser) {
                     const destNodeName = node.tagName.toLowerCase();
                     let destNode = destinationChooser(destNodeName);
@@ -1214,19 +1379,23 @@ class CreateModule extends globalThis.HTMLElement {
                         destinationRoot.appendChild(destNode);
                     }
                     node.merge(destNode);
+                    didMerge = didMerge || destNode !== null;
                 } else {
+                    didMerge = true;
                     node.merge(destinationRoot);
                 }
             } else {
                 console.debug(`The ${payload.tagName} module child: ${node.nodeName}, cannot be merged.\n\n          Is the destination an instance of "CanMerge"?`);
             }
         }
+        return didMerge;
     }
 }
 class CanHaveModules extends globalThis.HTMLElement {
     modules = [];
     applyPayloads({ payloads =[] , payloadChildFilter =()=>true
      , destinationRoot =this , destinationChooser , removeModule =true  }) {
+        let appliedPayload = false;
         for (const child of [
             ...this.children
         ]){
@@ -1235,65 +1404,23 @@ class CanHaveModules extends globalThis.HTMLElement {
                 const payload = payloads.find((p)=>p.tagName.toLowerCase() === name
                 );
                 if (!payload) continue;
-                this.modules.push(name);
-                child.initialize({
+                if (child.initialize({
                     payload,
                     destinationRoot,
                     destinationChooser,
                     payloadChildFilter
-                });
+                })) {
+                    this.modules.push(name);
+                    appliedPayload = true;
+                }
                 if (removeModule) {
                     this.removeChild(child);
                 }
             }
         }
+        return appliedPayload;
     }
 }
-class ShaderCanvasContainer extends CanMerge {
-    content = new Map();
-    createContentComponentsWith = (parent)=>{
-        for (const child of [
-            ...this.children
-        ]){
-            const childName = child.tagName.toLocaleLowerCase();
-            if (!childName) {
-                throw new Error(`Unable to read ${this.tagName} child`);
-            }
-            if (!globalThis.customElements.get(childName)) {
-                const contentClass = class extends parent {
-                };
-                globalThis.customElements.define(childName, contentClass);
-                this.content.set(childName, child);
-            }
-        }
-    };
-}
-class NewModules extends ShaderCanvasContainer {
-    static tag = "new-modules";
-    whenLoaded = Promise.all(dependsOn4.map((c)=>globalThis.customElements.whenDefined(c.tag)
-    ));
-    payloads = [];
-    async initialize(initializers) {
-        await this.whenLoaded;
-        this.createContentComponentsWith(CreateModule);
-        for (const child of [
-            ...this.children
-        ]){
-            if (child instanceof CreateModule) {
-                this.payloads.push(child.initializeModule(initializers));
-            }
-        }
-        return this.payloads;
-    }
-}
-[
-    NewModules,
-    ...dependsOn4
-].map((component)=>{
-    if (!globalThis.customElements.get(component.tag)) {
-        globalThis.customElements.define(component.tag, component);
-    }
-});
 class CreateProgram extends CanHaveModules {
     static tag = "{{user defined}}";
     name = this.tagName.toLocaleLowerCase();
@@ -1373,7 +1500,26 @@ class CreateProgram extends CanHaveModules {
         }
         gl.linkProgram(program);
     }
+    shaderCompilationCheck(gl) {
+        if (this.vertexShader?.shader) {
+            const compiled = gl.getShaderParameter(this.vertexShader.shader, gl.COMPILE_STATUS);
+            if (!compiled) {
+                console.warn("Vertex Shader failed to compile");
+                const compilationLog = gl.getShaderInfoLog(this.vertexShader.shader);
+                console.log("Shader compiler log: " + compilationLog);
+            }
+        }
+        if (this.fragmentShader?.shader) {
+            const compiled = gl.getShaderParameter(this.fragmentShader.shader, gl.COMPILE_STATUS);
+            if (!compiled) {
+                console.warn("Fragment Shader failed to compile");
+                const compilationLog = gl.getShaderInfoLog(this.fragmentShader.shader);
+                console.log("Shader compiler log: " + compilationLog);
+            }
+        }
+    }
     statusCheck(gl) {
+        this.shaderCompilationCheck(gl);
         if (!this.program) {
             throw new Error("Status: Program was not created " + this.tagName);
         }
@@ -1450,6 +1596,63 @@ class CreateProgram extends CanHaveModules {
         }
     }
 }
+class WebGLProgramPart extends CanMerge {
+    static tag = "webgl-program-part";
+    mergeCodeChildren(dest, node) {
+        if (node && dest) {
+            for (const child of node.childNodes){
+                if (child.nodeName === "CODE" || child.nodeName === "CODE-BEFORE" || child.nodeName === "CODE-AFTER") {
+                    const destSibling = dest.querySelector(child.nodeName);
+                    const codeChild = child.cloneNode(true);
+                    if (codeChild instanceof globalThis.Element) {
+                        codeChild.setAttribute("from-module", this.module);
+                    }
+                    if (destSibling) {
+                        dest.insertBefore(codeChild, destSibling);
+                    } else {
+                        dest.appendChild(codeChild);
+                    }
+                }
+            }
+        }
+    }
+    merge(dest) {
+        if (!dest) return;
+        const vertexElem = this.querySelector(VertexShader.tag);
+        const fragmentElem = this.querySelector(FragmentShader.tag);
+        this.mergeCodeChildren(dest.querySelector(VertexShader.tag), vertexElem);
+        this.mergeCodeChildren(dest.querySelector(FragmentShader.tag), fragmentElem);
+    }
+}
+const dependsOn4 = [
+    WebGLProgramPart
+];
+class NewModules extends ShaderCanvasContainer {
+    static tag = "new-modules";
+    whenLoaded = Promise.all(dependsOn4.map((c)=>globalThis.customElements.whenDefined(c.tag)
+    ));
+    payloads = [];
+    async initialize(initializers) {
+        await this.whenLoaded;
+        this.createContentComponentsWith(CreateModule);
+        for (const child of [
+            ...this.children
+        ]){
+            if (child instanceof CreateModule) {
+                this.payloads.push(child.initializeModule(initializers));
+            }
+        }
+        return this.payloads;
+    }
+}
+[
+    NewModules,
+    ...dependsOn4
+].map((component)=>{
+    if (!globalThis.customElements.get(component.tag)) {
+        globalThis.customElements.define(component.tag, component);
+    }
+});
 const dependsOn5 = [
     VertexShader,
     FragmentShader,
@@ -1497,15 +1700,25 @@ class WebGLPrograms extends ShaderCanvasContainer {
             ...this.locations.attributes.entries(), 
         ]);
     }
-    async callInitializers(gl, ctx, initializers) {
+    async callInitializers({ gl , ctx , programInitializers , modulesFunctions  }) {
         const result = new Map();
         for (const [programName, program] of this.content.entries()){
-            const f = initializers.get(programName);
+            const f = programInitializers.get(programName);
             if (f && program && program.program) {
                 gl.useProgram(program.program);
-                const renderer = await f(gl, {
+                const initializerArgs = {
                     uniformLocations: program.uniformLocations,
-                    ctx
+                    attributeLocations: this.locations.attributes,
+                    ctx,
+                    program,
+                    programName: program.name
+                };
+                const renderer = await f(gl, initializerArgs);
+                program.modules.forEach((m)=>{
+                    const functions = modulesFunctions.get(m);
+                    if (functions && functions.initializer) {
+                        functions.initializer(gl, initializerArgs);
+                    }
                 });
                 gl.useProgram(null);
                 if (renderer) {
@@ -1521,7 +1734,6 @@ class WebGLPrograms extends ShaderCanvasContainer {
         return result;
     }
 }
-const WebGLPrograms1 = WebGLPrograms;
 [
     WebGLPrograms,
     ...dependsOn5
@@ -1530,118 +1742,6 @@ const WebGLPrograms1 = WebGLPrograms;
         globalThis.customElements.define(component.tag, component);
     }
 });
-function readVertexAttribType(value) {
-    switch(value){
-        case "BYTE":
-        case "SHORT":
-        case "UNSIGNED_BYTE":
-        case "UNSIGNED_SHORT":
-        case "FLOAT":
-        case "HALF_FLOAT":
-            return value;
-        default:
-            return "FLOAT";
-    }
-}
-class VertexAttribPointer extends globalThis.HTMLElement {
-    static tag = "vertex-attrib-pointer";
-    vertexAttribPointer = nop;
-    initialize(gl, locations = {
-        attributes: new Map()
-    }) {
-        const variable = this.variable;
-        if (variable === "") return null;
-        const location = locations.attributes.get(variable);
-        if (location === undefined || location < 0) {
-            console.warn(`<vertex-attrib-pointer> Unable to find variable ${variable} location`);
-            return;
-        }
-        this.location = location;
-        const size = this.size;
-        const type = gl[this.type];
-        const normalized = this.normalized;
-        const stride = this.stride;
-        const offset = this.offset;
-        this.vertexAttribPointer = ()=>{
-            gl.enableVertexAttribArray(location);
-            gl.vertexAttribPointer(location, size, type, normalized, stride, offset);
-        };
-        this.vertexAttribPointer();
-    }
-    get variable() {
-        return this.getAttribute("variable") || "";
-    }
-    set variable(name) {
-        if (name) {
-            this.setAttribute("variable", name);
-        } else {
-            console.warn("<vertex-attrib-pointer> needs a 'variable' attribute set");
-            this.removeAttribute("variable");
-        }
-    }
-    get size() {
-        return Number(this.getAttribute("size") || 4);
-    }
-    set size(val) {
-        const size = Number(val);
-        if (isNaN(size)) {
-            console.warn("Invalid size in vertex-attrib-pointer: must be a number");
-            this.removeAttribute("size");
-        } else if (size <= 0 || size > 4) {
-            console.warn("Invalid size in vertex-attrib-pointer: must be 1,2,3 or 4");
-            this.removeAttribute("size");
-        } else {
-            this.setAttribute("size", String(size));
-        }
-    }
-    get type() {
-        return readVertexAttribType(this.getAttribute("type"));
-    }
-    set type(val) {
-        if (val) {
-            this.setAttribute("type", readVertexAttribType(val));
-        } else {
-            this.removeAttribute("type");
-        }
-    }
-    get offset() {
-        return Number(this.getAttribute("offset") || 0);
-    }
-    set offset(val) {
-        const offset = Number(val);
-        if (isNaN(offset)) {
-            console.warn("Invalid offset in vertex-attrib-pointer: must be a number");
-            this.removeAttribute("offset");
-        } else {
-            this.setAttribute("offset", String(offset));
-        }
-    }
-    get normalized() {
-        return this.getAttribute("normalized") !== null;
-    }
-    set normalized(val) {
-        if (val) {
-            this.setAttribute("normalized", "");
-        } else {
-            this.removeAttribute("normalized");
-        }
-    }
-    get stride() {
-        return Number(this.getAttribute("stride") || 0);
-    }
-    set stride(val) {
-        const stride = Number(val);
-        if (isNaN(stride)) {
-            console.warn("Invalid stride in vertex-attrib-pointer: must be a number");
-            this.removeAttribute("stride");
-        } else if (stride < 0 || stride > 255) {
-            console.warn("Invalid stride in vertex-attrib-pointer: must be between 0 and 255");
-            this.removeAttribute("stride");
-        } else {
-            this.setAttribute("stride", String(stride));
-        }
-    }
-}
 function readQueryElement(src) {
     return new Promise((resolve, reject)=>{
         if (isQuery(src)) {
@@ -1660,7 +1760,6 @@ function readQueryElement(src) {
         }
     });
 }
-const readQueryElement1 = readQueryElement;
 function readSrcAsJSON(src) {
     return new Promise((resolve, reject)=>{
         const firstChar = src[0];
@@ -1681,7 +1780,6 @@ function readSrcAsJSON(src) {
         reject();
     });
 }
-const readSrcAsJSON1 = readSrcAsJSON;
 function isQuery(query) {
     const firstChar = query[0];
     const secondChar = query[1];
@@ -1720,7 +1818,6 @@ function readImageDataFromQuery(src) {
         }
     });
 }
-const readImageDataFromQuery1 = readImageDataFromQuery;
 async function trySrcReaders(src, readers) {
     for(let i = 0; i < readers.length; i++){
         try {
@@ -1799,8 +1896,8 @@ class BufferData extends globalThis.HTMLElement {
         this.load = async (buffer, srcOverride)=>{
             if (src || srcOverride) {
                 this.data = await this.readDataFromSrc([
-                    readQueryElement1,
-                    readSrcAsJSON1
+                    readQueryElement,
+                    readSrcAsJSON
                 ], srcOverride);
             }
             gl.bindBuffer(target, buffer);
@@ -1852,9 +1949,11 @@ class CreateBuffer extends globalThis.HTMLElement {
             console.error(`<${this.tagName.toLocaleLowerCase()}>: Unable to create buffer`);
             return;
         }
-        for (const child of [
-            ...this.children
-        ]){
+        this.bindBuffer = ()=>{
+            gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+            return gl.ARRAY_BUFFER;
+        };
+        for (const child of Array.from(this.children)){
             if (child instanceof BufferData) {
                 child.initialize(gl);
                 await child.load(this.buffer);
@@ -1903,7 +2002,6 @@ class WebGLBuffers extends ShaderCanvasContainer {
         }
     }
 }
-const WebGLBuffers1 = WebGLBuffers;
 [
     WebGLBuffers,
     ...dependsOn6
@@ -1912,6 +2010,125 @@ const WebGLBuffers1 = WebGLBuffers;
         globalThis.customElements.define(component.tag, component);
     }
 });
+function readVertexAttribType(value) {
+    switch(value){
+        case "BYTE":
+        case "SHORT":
+        case "UNSIGNED_BYTE":
+        case "UNSIGNED_SHORT":
+        case "FLOAT":
+        case "HALF_FLOAT":
+            return value;
+        default:
+            return "FLOAT";
+    }
+}
+class VertexAttribPointer extends globalThis.HTMLElement {
+    static tag = "vertex-attrib-pointer";
+    vertexAttribPointer = nop;
+    initialize(gl, locations = {
+        attributes: new Map()
+    }) {
+        const variable = this.variable;
+        if (variable === "") return null;
+        const location = locations.attributes.get(variable);
+        if (location === undefined || location < 0) {
+            console.warn(`<vertex-attrib-pointer> Unable to find variable ${variable} location`);
+            return;
+        }
+        this.location = location;
+        const size = this.size;
+        const type = gl[this.type];
+        const normalized = this.normalized;
+        const stride = this.stride;
+        const offset = this.offset;
+        const divisor = this.divisor;
+        this.vertexAttribPointer = ()=>{
+            gl.enableVertexAttribArray(location);
+            gl.vertexAttribPointer(location, size, type, normalized, stride, offset);
+            if (divisor > 0) {
+                gl.vertexAttribDivisor(location, divisor);
+            }
+        };
+        this.vertexAttribPointer();
+    }
+    get variable() {
+        return this.getAttribute("variable") || "";
+    }
+    set variable(name) {
+        if (name) {
+            this.setAttribute("variable", name);
+        } else {
+            console.warn("<vertex-attrib-pointer> needs a 'variable' attribute set");
+            this.removeAttribute("variable");
+        }
+    }
+    get divisor() {
+        return Number(this.getAttribute("divisor"));
+    }
+    get size() {
+        return Number(this.getAttribute("size") || 4);
+    }
+    set size(val) {
+        const size = Number(val);
+        if (isNaN(size)) {
+            console.warn("Invalid size in vertex-attrib-pointer: must be a number");
+            this.removeAttribute("size");
+        } else if (size <= 0 || size > 4) {
+            console.warn("Invalid size in vertex-attrib-pointer: must be 1,2,3 or 4");
+            this.removeAttribute("size");
+        } else {
+            this.setAttribute("size", String(size));
+        }
+    }
+    get type() {
+        return readVertexAttribType(this.getAttribute("type"));
+    }
+    set type(val) {
+        if (val) {
+            this.setAttribute("type", readVertexAttribType(val));
+        } else {
+            this.removeAttribute("type");
+        }
+    }
+    get offset() {
+        return Number(this.getAttribute("offset") || 0);
+    }
+    set offset(val) {
+        const offset = Number(val);
+        if (isNaN(offset)) {
+            console.warn("Invalid offset in vertex-attrib-pointer: must be a number");
+            this.removeAttribute("offset");
+        } else {
+            this.setAttribute("offset", String(offset));
+        }
+    }
+    get normalized() {
+        return this.getAttribute("normalized") !== null;
+    }
+    set normalized(val) {
+        if (val) {
+            this.setAttribute("normalized", "");
+        } else {
+            this.removeAttribute("normalized");
+        }
+    }
+    get stride() {
+        return Number(this.getAttribute("stride") || 0);
+    }
+    set stride(val) {
+        const stride = Number(val);
+        if (isNaN(stride)) {
+            console.warn("Invalid stride in vertex-attrib-pointer: must be a number");
+            this.removeAttribute("stride");
+        } else if (stride < 0 || stride > 255) {
+            console.warn("Invalid stride in vertex-attrib-pointer: must be between 0 and 255");
+            this.removeAttribute("stride");
+        } else {
+            this.setAttribute("stride", String(stride));
+        }
+    }
+}
 const dependsOn7 = [
     VertexAttribPointer,
     WebGLBuffers
@@ -1939,9 +2156,7 @@ class BindBuffer extends globalThis.HTMLElement {
         await this.whenLoaded;
         this.bindBuffer = buffers.bindFunctionFor(this.src);
         this.target = this.bindBuffer();
-        for (const child of [
-            ...this.children
-        ]){
+        for (const child of Array.from(this.children)){
             if (child instanceof VertexAttribPointer) {
                 child.initialize(gl, locations);
                 this.vars.push(child.variable);
@@ -1952,7 +2167,6 @@ class BindBuffer extends globalThis.HTMLElement {
                 }
             }
         }
-        gl.bindBuffer(this.target, null);
     }
 }
 [
@@ -1985,10 +2199,9 @@ class CreateVertexArray extends globalThis.HTMLElement {
             console.error(`<${this.tagName.toLocaleLowerCase()}>: Unable to create VAO`);
             return;
         }
-        gl.bindVertexArray(this.vao);
-        for (const child of [
-            ...this.children
-        ]){
+        const vao = this.vao;
+        gl.bindVertexArray(vao);
+        for (const child of Array.from(this.children)){
             if (child instanceof BindBuffer) {
                 await child.initialize(gl, buffers, locations);
                 this.vars = this.vars.concat(child.vars);
@@ -2000,9 +2213,9 @@ class CreateVertexArray extends globalThis.HTMLElement {
             }
         }
         gl.bindVertexArray(null);
-        const vao = this.vao;
-        this.bindVAO = ()=>gl.bindVertexArray(vao)
-        ;
+        this.bindVAO = ()=>{
+            gl.bindVertexArray(vao);
+        };
     }
 }
 [
@@ -2047,7 +2260,6 @@ class WebGLVertexArrayObjects extends ShaderCanvasContainer {
         }
     }
 }
-const WebGLVertexArrayObjects1 = WebGLVertexArrayObjects;
 [
     WebGLVertexArrayObjects,
     ...dependsOn9
@@ -2108,7 +2320,7 @@ class TexImage2D extends globalThis.HTMLElement {
         this.load = async (texture, srcOverride)=>{
             if (src || srcOverride) {
                 this.data = await this.readDataFromSrc([
-                    readImageDataFromQuery1
+                    readImageDataFromQuery
                 ], srcOverride ? srcOverride : src || srcOverride);
                 gl.bindTexture(gl[target], texture);
                 if (width > 0 && height > 0) {
@@ -2262,7 +2474,6 @@ class WebGLTextures extends ShaderCanvasContainer {
         ));
     }
 }
-const WebGLTextures1 = WebGLTextures;
 [
     WebGLTextures,
     ...dependsOn11
@@ -2289,7 +2500,7 @@ class WebGLCanvas extends globalThis.HTMLElement {
     ;
     webglCanvasDraw = nop;
     async initialize(init) {
-        const { width , height , programInitializers ,  } = init;
+        const { width , height , programInitializers , modulesFunctions , bufferInitializers ,  } = init;
         await this.whenLoaded;
         const dpr = window.devicePixelRatio;
         this.canvas.width = width * dpr;
@@ -2311,15 +2522,27 @@ class WebGLCanvas extends globalThis.HTMLElement {
         await ctx.buffers.initialize(ctx);
         await ctx.textures.initialize(ctx);
         await ctx.vaos.initialize(ctx);
-        const renderers = await ctx.programs.callInitializers(this.gl, ctx, programInitializers);
+        const bufferUpdaters = bufferInitializers.map((f)=>{
+            if (this.gl) {
+                return f(this.gl, ctx.buffers, ctx) || nop;
+            }
+            return nop;
+        }).filter((f)=>f !== nop
+        );
+        const renderers = await ctx.programs.callInitializers({
+            gl: this.gl,
+            ctx,
+            programInitializers,
+            modulesFunctions
+        });
         let drawCallsRoot = this.querySelector(DrawCalls.tag);
         if (!drawCallsRoot) {
-            drawCallsRoot = globalThis.document.createElement(DrawCalls1.tag);
+            drawCallsRoot = globalThis.document.createElement(DrawCalls.tag);
             this.append(drawCallsRoot);
         }
         if (drawCallsRoot instanceof DrawCalls) {
             this.createDefaultDrawCalls(this.gl, drawCallsRoot);
-            await drawCallsRoot.initialize(this.gl, ctx, renderers);
+            await drawCallsRoot.initialize(this.gl, ctx, renderers, bufferUpdaters);
             if (drawCallsRoot instanceof DrawCalls) {
                 this.webglCanvasDraw = drawCallsRoot.drawCalls;
             }
@@ -2331,25 +2554,25 @@ class WebGLCanvas extends globalThis.HTMLElement {
         let buffers = this.querySelector(WebGLBuffers.tag);
         if (!buffers) {
             console.warn(`<webgl-canvas>: Unable to find <${WebGLBuffers.tag}>`);
-            buffers = globalThis.document.createElement(WebGLBuffers1.tag);
+            buffers = globalThis.document.createElement(WebGLBuffers.tag);
             this.appendChild(buffers);
         }
         let vaos = this.querySelector(WebGLVertexArrayObjects.tag);
         if (!vaos) {
             console.warn(`<webgl-canvas>: Unable to find <${WebGLVertexArrayObjects.tag}>`);
-            vaos = globalThis.document.createElement(WebGLVertexArrayObjects1.tag);
+            vaos = globalThis.document.createElement(WebGLVertexArrayObjects.tag);
             this.appendChild(vaos);
         }
         let programs = this.querySelector(WebGLPrograms.tag);
         if (!programs) {
             console.warn(`<webgl-canvas>: Unable to find <${WebGLPrograms.tag}>`);
-            programs = globalThis.document.createElement(WebGLPrograms1.tag);
+            programs = globalThis.document.createElement(WebGLPrograms.tag);
             this.appendChild(programs);
         }
         let textures = this.querySelector(WebGLTextures.tag);
         if (!textures) {
             console.warn(`<webgl-canvas>: Unable to find <${WebGLTextures.tag}>`);
-            textures = globalThis.document.createElement(WebGLTextures1.tag);
+            textures = globalThis.document.createElement(WebGLTextures.tag);
             this.appendChild(textures);
         }
         if (textures instanceof WebGLTextures && programs instanceof WebGLPrograms && vaos instanceof WebGLVertexArrayObjects && buffers instanceof WebGLBuffers) {
@@ -2428,10 +2651,30 @@ class WebGLCanvas extends globalThis.HTMLElement {
         globalThis.customElements.define(component.tag, component);
     }
 });
+class ImportModule extends globalThis.HTMLElement {
+    static tag = "import-module";
+    get from() {
+        return this.getAttribute("from");
+    }
+    async initialize() {
+        if (this.from) {
+            try {
+                const response = await fetch(this.from);
+                const result = await response.text();
+                console.log("GOT RESULT", result);
+                return result;
+            } catch (e) {
+                console.error(e);
+            }
+        }
+    }
+}
 const dependsOn13 = [
     NewModules,
     WebGLCanvas,
-    DrawCalls, 
+    DrawCalls,
+    DrawLoop,
+    ImportModule, 
 ];
 class ShaderCanvas1 extends CanHaveModules {
     static tag = "shader-canvas";
@@ -2444,6 +2687,10 @@ class ShaderCanvas1 extends CanHaveModules {
         }();
     }
     static programInitializers = new Map();
+    static initializeBuffers(init) {
+        this.bufferInitializers.push(init);
+    }
+    static bufferInitializers = [];
     static webglModule(createModule) {
         return new class {
             createPart = createModule;
@@ -2459,6 +2706,9 @@ class ShaderCanvas1 extends CanHaveModules {
     }
     static modulesInitializers = new Map();
     static modulesFunctions = new Map();
+    static getModuleState(moduleName) {
+        return this.modulesFunctions.get(moduleName)?.getState?.();
+    }
     whenLoaded = Promise.all(dependsOn13.map((c)=>globalThis.customElements.whenDefined(c.tag)
     ));
     get width() {
@@ -2479,7 +2729,27 @@ class ShaderCanvas1 extends CanHaveModules {
         style.textContent = `\n      ::slotted(*) {\n        display: block;\n        width: ${this.width}px;\n        height: ${this.height}px;\n        overflow: hidden;\n      }\n      ::slotted(new-modules) {\n        display: none;\n      }\n    `;
         const slot = globalThis.document.createElement("slot");
         this.root.append(style, slot);
-        const modules = this.querySelector(NewModules.tag);
+        const modulesToLoad = globalThis.document.querySelectorAll("import-module");
+        const loadedModules = [];
+        for (const module of modulesToLoad){
+            if (module && module instanceof ImportModule) {
+                const content = await module.initialize();
+                if (content) {
+                    loadedModules.push(content);
+                }
+            }
+        }
+        let modules = this.querySelector(NewModules.tag);
+        if (!modules && loadedModules.length > 0) {
+            modules = globalThis.document.createElement(NewModules.tag);
+            this.root.appendChild(modules);
+        }
+        if (!modules) {
+            throw new Error("Unable to create placeholder <new-modules> tag");
+        }
+        for (const moduleContent of loadedModules){
+            modules.insertAdjacentHTML("afterbegin", moduleContent);
+        }
         let payloads = [];
         if (modules && modules instanceof NewModules) {
             payloads = await modules.initialize(ShaderCanvas1.modulesInitializers);
@@ -2498,16 +2768,31 @@ class ShaderCanvas1 extends CanHaveModules {
                 height: this.height,
                 payloads,
                 programInitializers: ShaderCanvas1.programInitializers,
+                bufferInitializers: ShaderCanvas1.bufferInitializers,
                 modulesFunctions: ShaderCanvas1.modulesFunctions
             });
             if (this.webglCanvas instanceof WebGLCanvas) {
                 const webglDraw = this.webglCanvas.webglCanvasDraw;
                 this.draw = webglDraw;
+                const loopElement = this.querySelector("draw-loop");
+                if (loopElement && loopElement instanceof DrawLoop) {
+                    this.loop = loopElement;
+                }
             } else {
                 console.warn(`<${ShaderCanvas1.tag}>: no webgl canvas instance found`);
             }
         } else {
             console.warn(`No <${WebGLCanvas.tag}> found.`);
+        }
+    }
+    startLoop() {
+        if (this.loop) {
+            this.loop.start();
+        }
+    }
+    stopLoop() {
+        if (this.loop) {
+            this.loop.stop();
         }
     }
     setWebGLCanvas() {
@@ -2533,7 +2818,6 @@ class ShaderCanvas1 extends CanHaveModules {
         }
     }
 }
-export { ShaderCanvas1 as ShaderCanvas };
 [
     ShaderCanvas1,
     ...dependsOn13
@@ -2542,4 +2826,5 @@ export { ShaderCanvas1 as ShaderCanvas };
         globalThis.customElements.define(component.tag, component);
     }
 });
+export { ShaderCanvas1 as ShaderCanvas };
 
