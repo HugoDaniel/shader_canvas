@@ -131,6 +131,7 @@ export class TexImage2D extends globalThis.HTMLElement {
   get width(): number {
     return Number(this.getAttribute("width"));
   }
+
   /**
    * The height of the texture.
    * 
@@ -284,7 +285,7 @@ export class TexImage2D extends globalThis.HTMLElement {
   /**
    * A reference to the data sent to the GPU, this is set in the load function
    **/
-  data: ImageDataInput | undefined;
+  data: ImageDataInput | null = null;
 
   /**
    * This function is used to read the `src` attribute and try to read it with 
@@ -349,31 +350,44 @@ export class TexImage2D extends globalThis.HTMLElement {
           [readImageDataFromQuery],
           srcOverride ? srcOverride : src || srcOverride,
         );
-        // Temporarily bind the texture to call `texImage2D` on it.
-        gl.bindTexture(gl[target], texture);
-        if (width > 0 && height > 0) {
-          gl.texImage2D(
-            gl[target],
-            level,
-            gl[internalFormat],
-            width,
-            height,
-            0,
-            gl[format],
-            gl[type],
-            this.data,
-          );
-        } else {
-          gl.texImage2D(
-            gl[target],
-            level,
-            gl[internalFormat],
-            gl[format],
-            gl[type],
-            this.data,
-          );
-        }
-        gl.bindTexture(gl[target], null);
+      }
+      // Temporarily bind the texture to call `texImage2D` on it.
+      gl.bindTexture(gl[target], texture);
+      if (width > 0 && height > 0) {
+        gl.texImage2D(
+          gl[target],
+          level,
+          gl[internalFormat],
+          width,
+          height,
+          0,
+          gl[format],
+          gl[type],
+          this.data as TexImageSource,
+        );
+      } else if (this.data === null) {
+        // No data, assume screen dimensions
+        console.log("NO DIMENSIONS");
+        gl.texImage2D(
+          gl[target],
+          level,
+          gl[internalFormat],
+          gl.drawingBufferWidth,
+          gl.drawingBufferWidth,
+          0,
+          gl[format],
+          gl[type],
+          null,
+        );
+      } else {
+        gl.texImage2D(
+          gl[target],
+          level,
+          gl[internalFormat],
+          gl[format],
+          gl[type],
+          this.data as TexImageSource,
+        );
       }
     };
   }

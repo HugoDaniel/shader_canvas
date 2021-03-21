@@ -4,6 +4,7 @@ import "https://deno.land/x/domtype@v1.0.4/mod.ts";
 import type { WebGLCanvasRuntime } from "./runtime.ts";
 import { WebGLPrograms } from "../webgl_programs/webgl_programs.ts";
 import { WebGLBuffers } from "../webgl_buffers/webgl_buffers.ts";
+import { WebGLFramebuffers } from "../webgl_framebuffers/webgl_framebuffers.ts";
 import type { WebGLCanvasContext } from "./context.ts";
 import { WebGLVertexArrayObjects } from "../webgl_vertex_array_objects/webgl_vertex_array_objects.ts";
 import { WebGLTextures } from "../webgl_textures/webgl_textures.ts";
@@ -243,6 +244,7 @@ export class WebGLCanvas extends globalThis.HTMLElement {
     await ctx.programs.initialize(ctx); // Compile, link and get locations
     await ctx.buffers.initialize(ctx); // Fetch data from sources into the GPU
     await ctx.textures.initialize(ctx); // Fetch images and put them in the GPU
+    await ctx.framebuffers.initialize(ctx); // Create framebuffers attachments
     await ctx.vaos.initialize(ctx); // Call the vertexAttribPointer's
 
     const bufferUpdaters = bufferInitializers.map((f) => {
@@ -337,9 +339,18 @@ export class WebGLCanvas extends globalThis.HTMLElement {
       textures = globalThis.document.createElement(WebGLTextures.tag);
       this.appendChild(textures);
     }
+    let framebuffers = this.querySelector(WebGLFramebuffers.tag);
+    if (!framebuffers) {
+      console.warn(`<webgl-canvas>: Unable to find <${WebGLFramebuffers.tag}>`);
+      framebuffers = globalThis.document.createElement(WebGLFramebuffers.tag);
+      this.appendChild(framebuffers);
+    }
+
     if (
       textures instanceof WebGLTextures && programs instanceof WebGLPrograms &&
-      vaos instanceof WebGLVertexArrayObjects && buffers instanceof WebGLBuffers
+      vaos instanceof WebGLVertexArrayObjects &&
+      buffers instanceof WebGLBuffers &&
+      framebuffers instanceof WebGLFramebuffers
     ) {
       // Create the Runtime object
       const runtime = this.createRuntime();
@@ -348,6 +359,7 @@ export class WebGLCanvas extends globalThis.HTMLElement {
         gl,
         programs,
         buffers,
+        framebuffers,
         vaos,
         textures,
         runtime,
@@ -360,6 +372,21 @@ export class WebGLCanvas extends globalThis.HTMLElement {
 "<webgl-canvas>: Unable to create context function, \
     are the containers instances available and their tags registered?",
     );
+    if (!(textures instanceof WebGLTextures)) {
+      console.warn(`<webgl-textures> is malformed`, textures);
+    }
+    if (!(programs instanceof WebGLPrograms)) {
+      console.warn(`<webgl-programs> is malformed`, programs);
+    }
+    if (!(vaos instanceof WebGLVertexArrayObjects)) {
+      console.warn(`<webgl-vertex-array-objects> is malformed`, vaos);
+    }
+    if (!(framebuffers instanceof WebGLFramebuffers)) {
+      console.warn(`<webgl-framebuffers> is malformed`, framebuffers);
+    }
+    if (!(buffers instanceof WebGLBuffers)) {
+      console.warn(`<webgl-buffers> is malformed`, buffers);
+    }
     // return null if there is at least one container does not have its
     // intended instance.
     return () => null;

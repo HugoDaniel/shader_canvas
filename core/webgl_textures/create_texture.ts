@@ -2,6 +2,7 @@
 // Licensed under the EUPL
 import { nop } from "../common/nop.ts";
 import { TexImage2D } from "./tex_image_2d.ts";
+import { TexParameterF, TexParameterI } from "../draw_calls/tex_parameter.ts";
 
 /**
  * Like the other Web Components in Shader Canvas, this one ignores the
@@ -16,7 +17,7 @@ import { TexImage2D } from "./tex_image_2d.ts";
  * bottom of this file to register the tag names for them if they are not
  * registered.
  */
-const dependsOn = [TexImage2D];
+const dependsOn = [TexImage2D, TexParameterF, TexParameterI];
 
 export class CreateTexture extends globalThis.HTMLElement {
   /**
@@ -29,6 +30,8 @@ export class CreateTexture extends globalThis.HTMLElement {
    * The allowed children of a Texture are:
    * 
    * - [`<tex-image-2d>`](#TexImage2D) _Sets the Image data for this texture_
+   * - [`<tex-parameter-i>`](#TexParameterI) _Sets an int texture parameter_
+   * - [`<tex-parameter-f>`](#TexParameterF) _Sets a float texture parameter_
    * 
    * **Example**
    * 
@@ -95,6 +98,7 @@ export class CreateTexture extends globalThis.HTMLElement {
       );
       return;
     }
+    gl.bindTexture(gl.TEXTURE_2D, this.texture);
     for (const child of [...this.children]) {
       if (child instanceof TexImage2D) {
         child.initialize(gl); // creates the load function
@@ -102,7 +106,16 @@ export class CreateTexture extends globalThis.HTMLElement {
         // Create the bind function
         this.bindTexture = () => gl.bindTexture(gl.TEXTURE_2D, this.texture);
       }
+      if (child instanceof TexParameterI) {
+        child.initialize(gl);
+        child.texParameteri();
+      }
+      if (child instanceof TexParameterF) {
+        child.initialize(gl);
+        child.texParameterf();
+      }
     }
+    gl.bindTexture(gl.TEXTURE_2D, null);
   }
 }
 

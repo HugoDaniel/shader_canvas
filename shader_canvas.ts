@@ -461,6 +461,7 @@ export class ShaderCanvas extends CanHaveModules {
           child.nodeName === "WEBGL-VERTEX-ARRAY-OBJECTS" ||
           child.nodeName === "WEBGL-TEXTURES" ||
           child.nodeName === "WEBGL-BUFFERS" ||
+          child.nodeName === "WEBGL-FRAMEBUFFERS" ||
           child.nodeName === "DRAW-CALLS",
         payloads,
         // The removeModule flag specifies if the module tag should be removed

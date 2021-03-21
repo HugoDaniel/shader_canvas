@@ -225,6 +225,10 @@ export class BufferData extends globalThis.HTMLElement {
     return this.getAttribute("src");
   }
 
+  get bytesPerItem(): number {
+    return Number(this.getAttribute("bytesPerItem")) || 8;
+  }
+
   /**
    * The length of the raw data in bytes (takes in consideration a possible
    * offset)
@@ -278,6 +282,21 @@ export class BufferData extends globalThis.HTMLElement {
           [readQueryElement, readSrcAsJSON],
           srcOverride,
         );
+      } else if (
+        this.target === "PIXEL_PACK_BUFFER" ||
+        this.target === "PIXEL_UNPACK_BUFFER"
+      ) {
+        const s = this.size || gl.drawingBufferWidth * gl.drawingBufferHeight;
+        switch (this.bytesPerItem) {
+          case 1:
+            this.data = new Uint8Array(s);
+            break;
+          case 2:
+            this.data = new Uint16Array(s);
+            break;
+          default:
+            this.data = new Uint32Array(s * 4);
+        }
       }
       gl.bindBuffer(target, buffer);
       if (this.data) {
@@ -285,19 +304,26 @@ export class BufferData extends globalThis.HTMLElement {
         if (Array.isArray(this.data)) {
           if (target !== gl.ELEMENT_ARRAY_BUFFER) {
             this.data = new Float32Array(this.data);
-            bytesPerItem = 4;
+            bytesPerItem = (this.data as Float32Array).BYTES_PER_ELEMENT;
           } else {
             this.data = new Uint16Array(this.data);
-            bytesPerItem = 2;
+            bytesPerItem = (this.data as Uint16Array).BYTES_PER_ELEMENT;
           }
+        } else if (
+          this.target === "PIXEL_PACK_BUFFER" ||
+          this.target === "PIXEL_UNPACK_BUFFER"
+        ) {
+          bytesPerItem = (this.data as Uint32Array).BYTES_PER_ELEMENT;
         }
         // Useful to calculate the draw count when drawing this buffer as the
         // source of vertices
         this.length = Math.floor(this.data.byteLength / bytesPerItem);
+        console.log("CREATED BUFFER", this.length, bytesPerItem);
         if (this.offset > 0 && isArrayBufferView(this.data)) {
           gl.bufferData(target, this.data, usage, this.offset);
           this.length = this.length - this.offset;
         } else {
+          console.log("UPLOADING DATA ARRAY");
           gl.bufferData(target, this.data, usage);
         }
       } else {
@@ -310,7 +336,7 @@ export class BufferData extends globalThis.HTMLElement {
           gl.bufferData(target, null, usage);
         }
       }
-      gl.bindBuffer(target, null);
+      // gl.bindBuffer(target, null);
     };
   }
 }

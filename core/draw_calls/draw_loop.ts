@@ -45,7 +45,11 @@ export class DrawLoop extends DrawCallsContainer {
   private whenLoaded = Promise.all(
     dependsOn.map((c) => globalThis.customElements.whenDefined(c.tag)),
   );
-
+  /** 
+   * Don't run the draw calls as part of the parent container draw cycle.
+   * A loop has its own raf and draw cycle.
+   */
+  runDrawCalls = false;
   /** A reference to the registered `requestFrame` callback id */
   intervalId = -1;
   /**
@@ -112,6 +116,7 @@ export class DrawLoop extends DrawCallsContainer {
     updaters: (() => void)[],
   ) {
     await this.whenLoaded;
+    console.log("DRAW LOOP RENDERERS", renderers);
     await this.buildDrawFunction(gl, context, renderers, updaters);
     // prepend the functions for the modules that have declared a "onFrame"
     // function

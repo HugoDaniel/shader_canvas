@@ -37,6 +37,9 @@ export class ClearFlags extends globalThis.HTMLElement {
 
     return maskString.split("|").map((s) => s.trim());
   }
+  get flags(): string[] {
+    return this.mask;
+  }
 
   /**
    * The function to call when rendering, defaults to a no-op and is created

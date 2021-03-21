@@ -185,7 +185,7 @@ export class UseProgram extends globalThis.HTMLElement {
         this.drawCalls = this.drawCalls.concat(child.drawCalls);
       } else {
         console.warn(
-          `<use-program>: No valid child found in: <${child.tagName.toLocaleLowerCase()}>`,
+          `<use-program>: This tag "<${child.tagName.toLocaleLowerCase()}>" is not a valid child of use-program`,
         );
       }
     }

@@ -82,7 +82,7 @@ export class DepthFunc extends globalThis.HTMLElement {
   initialize(gl: WebGL2RenderingContext) {
     const func = gl[this.func];
     this.depthFunc = () => {
-      gl.enable(gl.DEPTH);
+      gl.enable(gl.DEPTH_TEST);
       gl.depthFunc(func);
     };
   }
@@ -94,7 +94,7 @@ export class DepthFunc extends globalThis.HTMLElement {
    * Possible values are:
    * 
    * - `"NEVER"`
-   * - `"LESS"`
+   * - `"LESS"` __default__
    * - `"EQUAL"`
    * - `"LEQUAL"`
    * - `"GREATER"`

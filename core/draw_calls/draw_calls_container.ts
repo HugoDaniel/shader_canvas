@@ -14,6 +14,10 @@ import { WebGLCanvasContext } from "../webgl_canvas/context.ts";
 import { ProgramRenderer } from "../common/program_class.ts";
 import { CullFace } from "./cull_face.ts";
 import { CanMerge } from "../new_modules/can_merge.ts";
+import { DrawBuffers } from "./draw_buffers.ts";
+import { ReadPixels } from "./read_pixels.ts";
+import { BindFramebuffer } from "./bind_framebuffer.ts";
+import { glError } from "../common/errors.ts";
 import {
   SetUniform1fv,
   SetUniform1iv,
@@ -40,8 +44,8 @@ export const dependencies = [
   ClearFlags,
   DepthFunc,
   ViewportTransformation,
-  UseProgram,
   DrawVAO,
+  UseProgram,
   SetUniform1iv,
   SetUniform2iv,
   SetUniform3iv,
@@ -50,6 +54,8 @@ export const dependencies = [
   SetUniform2fv,
   SetUniform3fv,
   SetUniform4fv,
+  DrawBuffers,
+  ReadPixels,
 ];
 
 /**
@@ -72,6 +78,28 @@ export class DrawCallsContainer extends CanMerge {
    * It is a simple loop through all the closures listed in `drawFunctions`.
    **/
   drawCalls: () => void = nop;
+
+  /**
+   * A function that evaluates to a boolean to block render.
+   * 
+   * When this function is true, the rendering is stopped.
+   * Useful to sync readPixels with the drawing loop, avoiding
+   * writing to read buffers without having read from them.
+   */
+  fence: (() => boolean) = () => this.fenceChildren.some(this.isDrawingBlocked);
+  isDrawingBlocked = ({ isDrawingBlocked }: { isDrawingBlocked: boolean }) =>
+    isDrawingBlocked;
+  /** The array to keep track of the children that need to sync the drawing */
+  fenceChildren: { isDrawingBlocked: boolean }[] = [];
+  /**
+   * If true, then this container will allow its drawCalls to be run by
+   * another container drawCalls. This is useful to allow single-run containers
+   * like <bind-framebuffer> to have their draw calls included in the parent
+   * DrawCallsContainer; it is also useful to allow containers like <draw-loop>
+   * to avoid having their calls being run by the parent container first flow.
+   */
+  runDrawCalls = true;
+  gl: WebGL2RenderingContext | undefined;
   /**
    * Reads the DOM and for every child node it initializes it and creates 
    * its corresponding drawing call to be put in the `drawFunctions` array of
@@ -86,6 +114,7 @@ export class DrawCallsContainer extends CanMerge {
     renderers: Map<string, ProgramRenderer>,
     updaters: (() => void)[],
   ) {
+    this.gl = gl;
     // Get children and create a function of draw commands to be called
     for (const child of Array.from(this.children)) {
       if (child instanceof ClearColor) {
@@ -112,21 +141,53 @@ export class DrawCallsContainer extends CanMerge {
       } else if (child instanceof ViewportTransformation) {
         child.initialize(gl);
         this.drawFunctions.push(child.viewport);
+      } else if (child instanceof ReadPixels) {
+        child.initialize(gl, context.buffers);
+        this.drawFunctions.push(child.readPixels);
+        // this.readFunction = child.readPixels;
+        // child.readPixels();
+        // A fence is created for pixel transfer, to sync drawing with reading
+        this.fenceChildren.push(child);
       } else if (child instanceof UseProgram) {
         // Pass the renderer
         await child.initialize(gl, context, renderers);
         this.drawFunctions.push(child.drawProgram);
+      } else if (child instanceof DrawBuffers) {
+        child.initialize(gl);
+        this.drawFunctions.push(child.drawBuffers);
+      } else if (child instanceof BindFramebuffer && child.runDrawCalls) {
+        await child.initialize(gl, context, renderers, updaters);
+        this.drawFunctions.push(child.drawCalls);
       }
     }
     // Create draw function
     this.drawCalls = () => {
+      if (this.fence()) {
+        console.log("DRAW CALLS: IN FENCE");
+        return;
+      }
+      // console.log("DRAWING");
+      /*
+      if (this.readFunction) {
+        this.readFunction();
+      }
+      */
+
       for (let i = 0; i < updaters.length; i++) {
         updaters[i]();
       }
       for (let i = 0; i < this.drawFunctions.length; i++) {
         this.drawFunctions[i]();
       }
+      /*
+      if (this.read < 60) {
+        this.readFunction();
+        this.read++;
+      }
+      */
     };
     return this.drawCalls;
   }
+  readFunction: (() => void) | undefined = undefined;
+  read = 0;
 }

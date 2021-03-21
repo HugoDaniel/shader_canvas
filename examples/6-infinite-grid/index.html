@@ -35,8 +35,7 @@ Licensed under the EUPL -->
                 </webgl-program-part>
                 <script type=module>
                     import { ShaderCanvas } from "../../build/shader_canvas.js";
-                    import { transformPoint, translation, translate, scale, multiply } from "./matrix.js"
-                    const precision = (n) => parseFloat(n.toFixed(2))
+                    import { transformPoint, identityMatrix, translate, scale, multiply } from "./matrix.js"
 
                     const module = ShaderCanvas.webglModule(() => {
                         const dpr = window.devicePixelRatio;
@@ -46,7 +45,7 @@ Licensed under the EUPL -->
                         let zoom = 1;
                         let zoomSign = 1;
                         let zoomDelta = 0;
-                        let oldZoom = 1;
+                        let oldZoom = 0.99;
                         let panX = 0;
                         let panY = 0;
                         let oldPanX = 0;
@@ -80,7 +79,6 @@ Licensed under the EUPL -->
                         };
                         const gestureChangeHandler = (e) => {
                             e.preventDefault();
-  
                             rotation = gestureStartRotation + e.rotation;
                             zoom = gestureStartZoom * e.scale;
                             zoomSign = Math.sign(oldZoom - zoom)
@@ -93,27 +91,82 @@ Licensed under the EUPL -->
                         window.addEventListener("gesturestart", gestureStartHandler);
                         window.addEventListener("gesturechange", gestureChangeHandler);
                         window.addEventListener("gestureend", gestureEndHandler);
-                        let zoomT = translation([0.0, 0.0, 0.0]);
+                        let zoomT = identityMatrix();
                         let totalPanZoom = [0, 0, 1];
                         let isUpdateNeeded = true;
-
+                        let firstRender = true;
+                        const state = {
+                            matrix: zoomT,
+                            originAt: totalPanZoom,
+                            _isUpdating: false,
+                            _timeoutId: null,
+                            get isUpdating() {
+                                return this._isUpdating;
+                            },
+                            set isUpdating(value) {
+                                if (value !== this._isUpdating) {
+                                    if (value) {
+                                        this._isUpdating = value;
+                                        this.onActionStart();
+                                    } else {
+                                        this._isUpdating = value;
+                                        // only call end action after a timeout
+                                        // is reached
+                                        if (this._timeoutId === null) {
+                                            this._timeoutId = setTimeout(() => {
+                                                this._timeoutId = null;
+                                                if (!this._isUpdating) {
+                                                    this.onActionEnd()
+                                                }
+                                            }, 40)
+                                        }
+                                    }
+                                }
+                            },
+                            _actionStart: [],
+                            get onActionStart() {
+                                if (this._actionStart.length === 0) {
+                                    return (() => {});
+                                }
+                                return (() => this._actionStart.forEach(f => f()))
+                            },
+                            _actionEnd: [],
+                            set onActionStart(arg) {
+                                if (typeof arg !== "function") {
+                                    console.warn('A function was not passed to "onActionStart"');
+                                    return;
+                                }
+                                this._actionStart.push(arg);
+                            },
+                            get onActionEnd() {
+                                if (this._actionEnd.length === 0) {
+                                    return (() => {})
+                                }
+                                return (() => this._actionEnd.forEach(f => f()))
+                            },
+                            set onActionEnd(arg) {
+                                if (typeof arg !== "function") {
+                                    console.warn('A function was not passed to "onActionEnd"');
+                                    return;
+                                }
+                                this._actionEnd.push(arg);
+                            }
+                        };
+                        // console.log('STATE', state)
                         return ({
                             getState() {
-                                return (
-                                    { matrix: zoomT,
-                                      originAt: totalPanZoom
-                                    })
+                                state.matrix = zoomT;
+                                state.originAt = totalPanZoom;
+                                return state;
                             },
-                            onUseProgram({ gl }, program) {
-                                const matrixLoc = program.uniformLocations.get("panZoomMatrix");
-                                const originLoc = program.uniformLocations.get("originAt");
-                                if (!matrixLoc) return;
-                                if ((oldZoom !== zoom) || zoom === 1) {
+                            onFrame() {
+                                let updated = false;
+                                if ((oldZoom !== zoom) || firstRender) {
                                     // Apply the zoom affine transformation matrix
                                     const centerX = mouseX * dpr;
                                     const centerY = mouseY * dpr;
                                     zoomDelta = Math.exp(Math.abs(zoom - oldZoom) * -zoomSign);
-                                    const matrix = translation([0.0, 0.0, 0.0]);
+                                    const matrix = identityMatrix();
                                     translate(matrix, [centerX, centerY, 0.0], matrix);
                                     scale(matrix, [zoomDelta, zoomDelta, 0.0], matrix);
                                     translate(matrix, [-centerX, -centerY, 0.0], matrix);
@@ -121,6 +174,7 @@ Licensed under the EUPL -->
                                     zoomT = matrix;
                                     oldZoom = zoom;
                                     isUpdateNeeded = true;
+                                    firstRender = false;
                                 }
                                 let transform = zoomT;
                                 if (oldPanX !== panX || oldPanY !== panY) {
@@ -135,16 +189,23 @@ Licensed under the EUPL -->
                                 }
                                 if (isUpdateNeeded) {
                                     totalPanZoom = [0, 0, 0];
-                                    const identity = translation(totalPanZoom);
+                                    const identity = identityMatrix();
                                     transformPoint(zoomT, totalPanZoom, totalPanZoom);
                                     multiply(identity, zoomT, identity);
                                     totalPanZoom[2] = identity[0]; // real zoom
-                                    if (originLoc) {
-                                        gl.uniform3fv(originLoc, totalPanZoom);
-                                    }
-                                    gl.uniformMatrix4fv(matrixLoc, false, transform);
                                     isUpdateNeeded = false;
+                                    updated = true;
                                 }
+                                state.isUpdating = updated;
+                            },
+                            onUseProgram({ gl }, program) {
+                                const matrixLoc = program.uniformLocations.get("panZoomMatrix");
+                                const originLoc = program.uniformLocations.get("originAt");
+                                if (!matrixLoc) return;
+                                if (originLoc) {
+                                    gl.uniform3fv(originLoc, totalPanZoom);
+                                }
+                                gl.uniformMatrix4fv(matrixLoc, false, zoomT);
                             },
                         })
                     })
@@ -153,6 +214,18 @@ Licensed under the EUPL -->
             </pan-zoom-2d>
         </new-modules>
         <webgl-canvas>
+            <webgl-vertex-array-objects>
+                <quad-vao>
+                    <bind-buffer src="quad-vertices">
+                        <vertex-attrib-pointer variable="position" size="4"></vertex-attrib-pointer>
+                    </bind-buffer>
+                    <bind-buffer src="quad-indices"></bind-buffer>
+                    <bind-buffer src="quad-instance-scene">
+                        <vertex-attrib-pointer variable="instanceScene" size="4" divisor="1">
+                        </vertex-attrib-pointer>
+                    </bind-buffer>
+                </quad-vao>
+            </webgl-vertex-array-objects>
             <webgl-buffers>
                 <quad-vertices>
                     <buffer-data src="#points"></buffer-data>
@@ -160,62 +233,61 @@ Licensed under the EUPL -->
                 <quad-indices>
                     <buffer-data src="#elements" target="ELEMENT_ARRAY_BUFFER"></buffer-data>
                 </quad-indices>
-                <quad-instance-data></quad-instance-data>
                 <quad-instance-scene></quad-instance-scene>
+                <position-picker-pack>
+                    <!-- Fed by readPixels() -->
+                    <buffer-data target="PIXEL_PACK_BUFFER" usage="STREAM_READ"></buffer-data>
+                </position-picker-pack>
             </webgl-buffers>
-            <webgl-vertex-array-objects>
-                <quad-vao>
-                    <bind-buffer src="quad-vertices">
-                        <vertex-attrib-pointer variable="position" size="4">
-                        </vertex-attrib-pointer>
-                    </bind-buffer>
-                    <bind-buffer src="quad-indices"></bind-buffer>
-                    <bind-buffer src="quad-instance-data">
-                        <vertex-attrib-pointer variable="instanceData" size="4" divisor="1">
-                        </vertex-attrib-pointer>
-                    </bind-buffer>
-                    <bind-buffer src="quad-instance-scene">
-                        <vertex-attrib-pointer variable="instanceScene" size="4" divisor="1">
-                        </vertex-attrib-pointer>
-                    </bind-buffer>
-                </quad-vao>
-            </webgl-vertex-array-objects>
+            <webgl-textures>
+                <picker-texture-target>
+                    <tex-image-2d></tex-image-2d>
+                    <tex-parameter-i pname="TEXTURE_MIN_FILTER" param="NEAREST"></tex-parameter-i>
+                    <tex-parameter-i pname="TEXTURE_MAG_FILTER" param="NEAREST"></tex-parameter-i>
+                </picker-texture-target>
+            </webgl-textures>
+            <webgl-framebuffers>
+                <position-picker>
+                    <!--
+                    <framebuffer-texture-2d attachment="COLOR_ATTACHMENT0" src="picker-texture-target">
+                    </framebuffer-texture-2d>
+                -->
+                    <framebuffer-renderbuffer attachment="COLOR_ATTACHMENT0">
+                        <renderbuffer-storage format="RG32I"></renderbuffer-storage>
+                    </framebuffer-renderbuffer>
+
+                    <framebuffer-renderbuffer attachment="DEPTH_ATTACHMENT">
+                        <renderbuffer-storage format="DEPTH_COMPONENT16"></renderbuffer-storage>
+                    </framebuffer-renderbuffer>
+                </position-picker>
+            </webgl-framebuffers>
             <webgl-programs>
                 <infinite-grid>
                     <pan-zoom-2d></pan-zoom-2d>
                     <vertex-shader>
                         <code>
                             #version 300 es
-                            precision lowp float;
     
                             in vec4 position;
-    
-                            in vec4 instanceData;
                             in vec4 instanceScene;
-    
-                            uniform mat4 projection;    
+                            uniform mat4 projection; 
+                            uniform float size;
     
                             out float sceneColorId;
-    
+                            out vec2 instancePos;
+   
                             void main() {
-                                float size = instanceData.z;
-                                float padding = instanceData.w / 2.0; // in indexes/cols
-                                float xIndex = instanceScene.x; //  - padding;
-                                float yIndex = instanceScene.y; //  - padding;
-
                                 vec4 vertex =
                                     vec4(size, size, 1.0, 1.0)
                                     * position
-                                    + vec4(
-                                        xIndex * size,
-                                        yIndex * size,
-                                        0.0, 0.0);
+                                    + vec4(instanceScene.xy * vec2(size), 0.0, 0.0);
 
                                 vec4 transformedVertex = panZoomMatrix * vertex;
                                 vec4 projected = projection * transformedVertex;
 
                                 gl_Position = projected;
                                 sceneColorId = instanceScene.z;
+                                instancePos = instanceScene.xy;
                             }
                         </code>
                     </vertex-shader>
@@ -223,48 +295,52 @@ Licensed under the EUPL -->
                         <code>
                             #version 300 es
 
-                            precision mediump float;
-                            
+                            precision highp float;
+
+                            uniform vec3 hover;
                             uniform float isLines;
                             out vec4 outColor;
+                            in vec2 instancePos;
                             in float sceneColorId;
-                            void main() {
+
+                            vec4 getColorById(float cid) {
                                 vec4 color = vec4(0.0, 0.0, 0.0, 0.0);
-                                if (sceneColorId == 1.0) {
+                                if (cid == 1.0) {
                                     color = vec4(0.75, 0.25, 0.25, 1.0);
-                                } else if(sceneColorId == 2.0) {
+                                } else if(cid == 2.0) {
                                     color = vec4(0.35, 0.75, 0.25, 1.0);
-                                } else if(sceneColorId == 3.0) {
+                                } else if(cid == 3.0) {
                                     color = vec4(0.35, 0.25, 0.75, 1.0);
-                                } else if(sceneColorId == 4.0) {
+                                } else if(cid == 4.0) {
                                     color = vec4(0.75, 0.8, 0.25, 1.0);
-                                } else if (sceneColorId == 5.0) {
+                                } else if(cid == 5.0) {
                                     color = vec4(0.1, 0.2, 0.3, 1.0);
                                 }
-                                outColor = isLines * vec4(0.2, 0.2, 0.1, 1.0)
-                                + (color - isLines * color);
+                                return color;
+                            }
+                            void main() {
+                                vec4 color = getColorById(sceneColorId);
+                                if (hover.xy == instancePos) {
+                                    outColor = getColorById(hover.z); // vec4(0.8, 0.7, 0.6, 1);
+                                } else {
+                                    outColor = isLines * vec4(0.2, 0.2, 0.1, 1.0)
+                                    + (color - isLines * color);
+                                }
                             }
                         </code>
                     </fragment-shader>
                     <script type="module">
                         import { ShaderCanvas } from "../../build/shader_canvas.js";
                         import { ortho } from "./matrix.js"
-
+                        import { VectorMap } from "./vector_map.js"
                         ////////////////////
                         // APP STATE MOCK //
                         ////////////////////
-                        const appState = [
-                            // [x, y, colorId, 0]
-                            [0, 0, 5, 0],
-                            [1, 1, 1, 0],
-                            [1, 2, 2, 0],
-                            [-1, -1, 3, 0],
-                            [2, 2, 4, 0],
-                            [5, 2, 1, 0],
-                            [5, 0, 3, 0],
-                            [10, 2, 2, 0],
-                            [31, 2, 5, 0],
-                        ];
+                        const appState = new VectorMap(
+                            [[0, 0], [1, 1], [1, 2], [-1, -1], [2, 2], [5, 2], [5, 0], [10, 2], [31, 2], [0, 29]],
+                            [5, 1, 2, 3, 4, 1, 3, 2, 5, 5]
+                        )
+
                         const gridSettings = new Float32Array([
                             0, 0, 0, 0
                         ]);
@@ -284,108 +360,193 @@ Licensed under the EUPL -->
                         const verticalSquares = Math.ceil((h / dpr) / size) + padding;
                         const instances = horizontalSquares * verticalSquares;
                         const dim = 4; // Matrix dimension
-                        const instanceData = new Float32Array(instances * dim);
                         const instanceScene = new Float32Array(instances * dim);
                         const cols = Math.ceil(w / (size * dpr)) + padding;
                         const dprSize = size * dpr;
+                        let needsSceneUpdate = false;
+                        let needsColorUpdate = false;
 
                         // its real indexes(x, y, fillId, fillRot)
                         function fillInstanceScene(gl, buffer, state = { originAt: [0, 0, 1] }) {
-                            const [padX, padY, scale] = state.originAt;
                             // padX, padY represent the number of pixels being
                             // panned. It can be seen as the distance of the
                             // current viewport towards the origin (with DPR).
                             // i.e. -170px in padX means that the origin is at
                             // 170/DPR pixels to the left. 
-
-                            const scaledSize = dprSize * scale;
-                            const sceneDeltaX = Math.floor(padX / scaledSize);
-                            const sceneDeltaY = Math.floor(padY / scaledSize);
+                            const transforms = state.originAt;
+                            const scaledSize = dprSize * transforms[2];
+                            const sceneDeltaX = Math.floor(transforms[0] / scaledSize) + padding / 2;
+                            const sceneDeltaY = Math.floor(transforms[1] / scaledSize) + padding / 2;
                             for (let i = 0; i < instances; i++) {
-                                const x = i % cols;
-                                const y = Math.abs(Math.floor(i / cols));
-
-                                const sceneX = x - sceneDeltaX - 1;
-                                const sceneY = y - sceneDeltaY - 1;
+                                const sceneX = Math.floor((i % cols) - sceneDeltaX);
+                                const sceneY = Math.floor(Math.abs(i / cols) - sceneDeltaY);
 
                                 instanceScene[dim * i + 0] = sceneX;
                                 instanceScene[dim * i + 1] = sceneY;
-                                let colorId = 0;
-                                // This is ugly, but serves the example purpose
-                                // of reading the current scene colorId.
-                                // A much better approach would use a good
-                                // appScene data structure.
-                                for (const [appX, appY, color] of appState) {
-                                    if (appX === Math.floor(sceneX) && appY === Math.floor(sceneY)) {
-                                        colorId = color;
-                                    }
-                                }
-                                instanceScene[dim * i + 2] = colorId;
-                                instanceScene[dim * i + 3] = 0;
+                                instanceScene[dim * i + 2] = appState.getXY(sceneX, sceneY) || 0;
                             }
                             buffer.bindBuffer();
                             gl.bufferData(gl.ARRAY_BUFFER, instanceScene, gl.DYNAMIC_DRAW);
                         }
 
-                        function fillInstanceData(gl, buffer) {
-                            for (let i = 0; i < instances; i++) {
-                                instanceData[dim * i + 0] = i % cols; // x
-                                instanceData[dim * i + 1] = Math.floor(i / cols); // y
-                                instanceData[dim * i + 2] = dprSize;
-                                instanceData[dim * i + 3] = padding;
-                            }
-                            buffer.bindBuffer();
-                            gl.bufferData(gl.ARRAY_BUFFER, instanceData, gl.STATIC_DRAW);
-                        }
-
                         ShaderCanvas.initializeBuffers((gl, buffers) => {
+                            const panZoomObj = ShaderCanvas.getModuleState("pan-zoom-2d");
+
                             const dataBuffers = [
-                                buffers.content.get("quad-instance-data"),
                                 buffers.content.get("quad-instance-scene")
                             ];
                             setInstanceCount(instances);
-                            fillInstanceData(gl, dataBuffers[0]);
-                            fillInstanceScene(gl, dataBuffers[1]);
+                            fillInstanceScene(gl, dataBuffers[0]);
                             return (() => {
                                 const state = ShaderCanvas.getModuleState("pan-zoom-2d");
-                                if (!state.matrix || !state.originAt || !(state.matrix instanceof Float32Array) || !state.originAt instanceof Array) {
+                                if (!state || !state.matrix || !state.originAt || !(state.matrix instanceof Float32Array) || !state.originAt instanceof Array) {
                                     console.log('Invalid "pan-zoom-2d" state');
                                     return;
                                 }
-                                fillInstanceScene(gl, dataBuffers[1], state);
+                                if (panZoomObj.isUpdating || needsSceneUpdate) {
+                                    fillInstanceScene(gl, dataBuffers[0], state);
+                                    needsSceneUpdate = false;
+                                }
+                                if (needsColorUpdate) {
+                                    colorId = Math.floor(Math.random() * 4) + 1
+                                    needsColorUpdate = false;
+                                }
                             })
-                        })
+                        });
 
+                        let hoverX = undefined;
+                        let hoverY = undefined;
+                        let colorId = Math.floor(Math.random() * 4) + 1;
                         const p = ShaderCanvas.createProgram((gl, { uniformLocations, ctx }) => {
+                            let oldHoverX = hoverX;
+                            let oldHoverY = hoverY;
+                            const hoverLoc = uniformLocations.get("hover");
                             gl.uniformMatrix4fv(uniformLocations.get("projection"), false,
-                                ortho(0, gl.canvas.clientWidth, gl.canvas.clientHeight, 0, -1, 1));
+                                ortho(0, gl.canvas.clientWidth, gl.canvas.clientHeight, 0, 0, 1));
+                            gl.uniform1f(uniformLocations.get("size"), dprSize);
+                            return () => {
+                                if (hoverX !== oldHoverX || hoverY !== oldHoverY) {
+                                    gl.uniform3f(hoverLoc, hoverX, hoverY, colorId);
+                                    oldHoverX = hoverX;
+                                    oldHoverY = hoverY;
+                                }
+                            }
                         });
 
                         p.useWith("infinite-grid")
+
+                        //////////////////////
+                        // Picking code
+                        //////////////////////
+
+                        function picking() {
+                            let mouseX = -1;
+                            let mouseY = -1;
+                            let isReading = false;
+                            const pixels = document.querySelector("read-pixels");
+                            const data = new Uint32Array(w * h * 4);
+
+                            let reader = Promise.resolve(data);
+                            const view = new DataView(data.buffer)
+                            document.addEventListener("pointermove", (e) => {
+                                mouseX = Math.floor(e.offsetX * dpr);
+                                mouseY = h - Math.floor(e.offsetY * dpr);
+                                const arrayPos = mouseY * (w * 16) + (mouseX * 16);
+                                hoverX = view.getInt32(arrayPos, true);
+                                hoverY = view.getInt32(arrayPos + 4, true);
+                            }, { capture: true });
+
+                            document.addEventListener("pointerdown", (e) => {
+                                needsSceneUpdate = true;
+                                needsColorUpdate = true;
+                                appState.addXY(hoverX, hoverY, colorId);
+                                // const sceneLinearPos = (instanceScene[0] - hoverX) * (instanceScene[1] - hoverY) * 4;
+                                console.log(`Down(${instanceScene[0] - hoverX}, ${instanceScene[1] - hoverY})`)
+                            })
+
+                            // Get the read pixels:
+                            const p = ShaderCanvas.createProgram((gl, { uniformLocations, ctx }) => {
+                                const panZoomObj = ShaderCanvas.getModuleState("pan-zoom-2d");
+                                // panZoomObj.onActionStart = () => console.log('STARTING PAN/ZOOM');
+                                panZoomObj.onActionEnd = () => {
+                                    pixels?.getPixels(data);
+                                }
+
+                                gl.uniform1f(uniformLocations.get("size"), 16 * dpr);
+                                gl.uniformMatrix4fv(uniformLocations.get("projection"), false,
+                                    ortho(0, gl.canvas.clientWidth, gl.canvas.clientHeight, 0, 0, 1));
+                            });
+                            p.useWith("picking-render")
+                        }
+
+                        picking();
                     </script>
                 </infinite-grid>
+                <picking-render>
+                    <pan-zoom-2d></pan-zoom-2d>
+
+                    <vertex-shader>
+                        <code>
+                            #version 300 es
+    
+                            in vec4 position;
+    
+                            uniform float size;
+                            uniform mat4 projection;    
+    
+                            in vec4 instanceScene;
+                            flat out ivec2 pos;
+    
+                            void main() {
+                                pos = ivec2(int(instanceScene.x),int(instanceScene.y));
+
+                                vec4 vertex =
+                                    vec4(size, size, 1.0, 1.0)
+                                    * position
+                                    + vec4(instanceScene.xy * vec2(size),
+                                        0.0, 0.0);
+
+                                vec4 transformedVertex = panZoomMatrix * vertex;
+                                vec4 projected = projection * transformedVertex;
+
+                                gl_Position = projected;
+                            }
+                        </code>
+                    </vertex-shader>
+                    <fragment-shader>
+                        <code>
+                            #version 300 es
+
+                            precision highp float;
+
+                            flat in ivec2 pos;
+
+                            out ivec2 rg32;
+
+                            void main() {
+                                rg32 = pos;
+                            }
+                        </code>
+                    </fragment-shader>
+                </picking-render>
             </webgl-programs>
             <draw-calls>
-                <viewport-transform x="0" y="0"></viewport-transform>
-                <clear-color red="0.5" green="0.2" blue="0.4" alpha="1"></clear-color>
-
-                <clear-flags mask="COLOR_BUFFER_BIT"></clear-flags>
+                <clear-color red="1" green="0" blue="0" alpha="0"></clear-color>
+                <clear-flags mask="COLOR_BUFFER_BIT | DEPTH_BUFFER_BIT"></clear-flags>
                 <draw-loop>
+                    <bind-framebuffer src="position-picker">
+                        <viewport-transform x="0" y="0"></viewport-transform>
+                        <depth-func func="LEQUAL"></depth-func>
+                        <use-program src="picking-render">
+                            <draw-vao src="quad-vao" mode="TRIANGLE_FAN" count="4" type="UNSIGNED_SHORT"></draw-vao>
+                        </use-program>
+                        <read-pixels dest="position-picker-pack" type="INT" format="RGBA_INTEGER"></read-pixels>
+                    </bind-framebuffer>
+                    <viewport-transform x="0" y="0"></viewport-transform>
+                    <depth-func func="LEQUAL"></depth-func>
                     <use-program src="infinite-grid">
                         <uniform-1fv var="isLines" value="0"></uniform-1fv>
                         <draw-vao src="quad-vao" mode="TRIANGLE_FAN" count="4" type="UNSIGNED_SHORT">
-
-                            <div id="points" style="display: none">
-                                [
-                                0.0, 0.0, 0.0, 1.0,
-                                1.0, 0.0, 0.0, 1.0,
-                                1.0, 1.0, 0.0, 1.0,
-                                0.0, 1.0, 0.0, 1.0]
-                            </div>
-                            <div id="elements" style="display: none">
-                                [ 0, 1, 2, 3 ]
-                            </div>
-
                         </draw-vao>
                         <uniform-1fv var="isLines" value="1"></uniform-1fv>
                         <draw-vao src="quad-vao" mode="LINE_STRIP" count="3" type="UNSIGNED_SHORT">
@@ -395,6 +556,16 @@ Licensed under the EUPL -->
             </draw-calls>
         </webgl-canvas>
     </shader-canvas>
+    <div id="elements" style="display: none">
+        [ 3, 2, 1, 0 ]
+    </div>
+    <div id="points" style="display: none">
+        [
+        0.0, 0.0, 0.5, 1.0,
+        1.0, 0.0, 0.5, 1.0,
+        1.0, 1.0, 0.5, 1.0,
+        0.0, 1.0, 0.5, 1.0]
+    </div>
 
     <!-- For triangles use these points and adjust the instance count:
                             <div id="points" style="display: none">
