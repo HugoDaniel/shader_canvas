@@ -9,7 +9,6 @@
  * 
  * Documentation can be found at https://hugodaniel.com/projects/shader-canvas/
  */
-import "https://deno.land/x/domtype@v1.0.4/mod.ts";
 import { nop } from "./core/common/nop.ts";
 import { DrawCalls } from "./core/draw_calls/draw_calls.ts";
 import { DrawLoop } from "./core/draw_calls/draw_loop.ts";
@@ -396,7 +395,7 @@ export class ShaderCanvas extends CanHaveModules {
     // Load all modules that are being imported
     const modulesToLoad = globalThis.document.querySelectorAll("import-module");
     const loadedModules: string[] = [];
-    for (const module of modulesToLoad) {
+    for (const module of Array.from(modulesToLoad)) {
       if (module && module instanceof ImportModule) {
         const content = await module.initialize();
         if (content) {
