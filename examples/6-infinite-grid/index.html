@@ -118,7 +118,7 @@ Licensed under the EUPL -->
                                                 if (!this._isUpdating) {
                                                     this.onActionEnd()
                                                 }
-                                            }, 40)
+                                            }, 100)
                                         }
                                     }
                                 }
@@ -212,6 +212,42 @@ Licensed under the EUPL -->
                     module.useWith("pan-zoom-2d");
                 </script>
             </pan-zoom-2d>
+            <tri-grid>
+                <webgl-program-part>
+                    <vertex-shader>
+                        <code-before>
+                            vec4 triangleGrid(void);
+                        </code-before>
+                        <code-after>
+                            vec2 rotate2d(vec2 v, float a) {
+                                float s = sin(a);
+                                float c = cos(a);
+                                mat2 m = mat2(c, -s, s, c);
+                                return m * v;
+                            }
+                            /*
+                            [ 0, 0, 0, 1,
+                            1, 0, 0, 1,
+                            0.5, 0.8660254037844386, 0, 1
+                            ]
+                            [ 0, 1, 2, 0 ]
+                            */                    
+                            vec4 triangleGrid(void) {
+                                float z = 0.1;
+                                vec4 p = position;
+                                // p.x = floor(mod(instanceScene.y, 2.0)) > 0.0 ? p.x : p.x*1.5;
+                                // p.x += gl_VertexID == 1 ? floor(mod(instanceScene.x, 2.0)) * (1.0) : 0.0;
+                                p.y = gl_VertexID == 2 ? (floor(mod(instanceScene.x, 2.0)) > 0.0 ? (p.y) : (-p.y)) : p.y;
+                                vec4 vertex = vec4(size, size, 1.0, 1.0) * p + vec4(instanceScene.xy * vec2(size * 0.5, 0.8660254037844386*size), 0.0, 0.0);
+
+                                vec4 transformedVertex = panZoomMatrix * vertex;
+                                vec4 projected = projection * transformedVertex;
+                                return projected; 
+                            }
+                        </code-before>
+                    </vertex-shader>
+                </webgl-program-part>
+            </tri-grid>
         </new-modules>
         <webgl-canvas>
             <webgl-vertex-array-objects>
@@ -251,7 +287,7 @@ Licensed under the EUPL -->
                     <!--
                     <framebuffer-texture-2d attachment="COLOR_ATTACHMENT0" src="picker-texture-target">
                     </framebuffer-texture-2d>
-                -->
+                    -->
                     <framebuffer-renderbuffer attachment="COLOR_ATTACHMENT0">
                         <renderbuffer-storage format="RG32I"></renderbuffer-storage>
                     </framebuffer-renderbuffer>
@@ -264,6 +300,8 @@ Licensed under the EUPL -->
             <webgl-programs>
                 <infinite-grid>
                     <pan-zoom-2d></pan-zoom-2d>
+                    <tri-grid></tri-grid>
+
                     <vertex-shader>
                         <code>
                             #version 300 es
@@ -275,17 +313,20 @@ Licensed under the EUPL -->
     
                             out float sceneColorId;
                             out vec2 instancePos;
-   
-                            void main() {
+                            vec4 squareGrid() {
                                 vec4 vertex =
                                     vec4(size, size, 1.0, 1.0)
                                     * position
-                                    + vec4(instanceScene.xy * vec2(size), 0.0, 0.0);
+                                    + vec4(instanceScene.xy * vec2(size),
+                                    0.0, 0.0);
 
                                 vec4 transformedVertex = panZoomMatrix * vertex;
                                 vec4 projected = projection * transformedVertex;
+                                return projected;
+                            }
 
-                                gl_Position = projected;
+                            void main() {
+                                gl_Position = squareGrid();
                                 sceneColorId = instanceScene.z;
                                 instancePos = instanceScene.xy;
                             }
@@ -365,6 +406,9 @@ Licensed under the EUPL -->
                         const dprSize = size * dpr;
                         let needsSceneUpdate = false;
                         let needsColorUpdate = false;
+                        let oldSceneDeltaX = 0;
+                        let oldSceneDeltaY = 0;
+                        let oldScaledSize = 1;
 
                         // its real indexes(x, y, fillId, fillRot)
                         function fillInstanceScene(gl, buffer, state = { originAt: [0, 0, 1] }) {
@@ -377,6 +421,9 @@ Licensed under the EUPL -->
                             const scaledSize = dprSize * transforms[2];
                             const sceneDeltaX = Math.floor(transforms[0] / scaledSize) + padding / 2;
                             const sceneDeltaY = Math.floor(transforms[1] / scaledSize) + padding / 2;
+                            if (!needsSceneUpdate && oldSceneDeltaX === sceneDeltaX && oldSceneDeltaY === sceneDeltaY && oldScaledSize == scaledSize) {
+                                return;
+                            }
                             for (let i = 0; i < instances; i++) {
                                 const sceneX = Math.floor((i % cols) - sceneDeltaX);
                                 const sceneY = Math.floor(Math.abs(i / cols) - sceneDeltaY);
@@ -385,8 +432,11 @@ Licensed under the EUPL -->
                                 instanceScene[dim * i + 1] = sceneY;
                                 instanceScene[dim * i + 2] = appState.getXY(sceneX, sceneY) || 0;
                             }
+                            oldSceneDeltaX = sceneDeltaX;
+                            oldSceneDeltaY = sceneDeltaY;
+                            oldScaledSize = scaledSize;
                             buffer.bindBuffer();
-                            gl.bufferData(gl.ARRAY_BUFFER, instanceScene, gl.DYNAMIC_DRAW);
+                            gl.bufferData(gl.ARRAY_BUFFER, instanceScene, gl.STREAM_DRAW);
                         }
 
                         ShaderCanvas.initializeBuffers((gl, buffers) => {
@@ -449,6 +499,8 @@ Licensed under the EUPL -->
                             let reader = Promise.resolve(data);
                             const view = new DataView(data.buffer)
                             document.addEventListener("pointermove", (e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
                                 mouseX = Math.floor(e.offsetX * dpr);
                                 mouseY = h - Math.floor(e.offsetY * dpr);
                                 const arrayPos = mouseY * (w * 16) + (mouseX * 16);
@@ -460,6 +512,7 @@ Licensed under the EUPL -->
                                 needsSceneUpdate = true;
                                 needsColorUpdate = true;
                                 appState.addXY(hoverX, hoverY, colorId);
+
                                 // const sceneLinearPos = (instanceScene[0] - hoverX) * (instanceScene[1] - hoverY) * 4;
                                 console.log(`Down(${instanceScene[0] - hoverX}, ${instanceScene[1] - hoverY})`)
                             })
@@ -484,7 +537,7 @@ Licensed under the EUPL -->
                 </infinite-grid>
                 <picking-render>
                     <pan-zoom-2d></pan-zoom-2d>
-
+                    <tri-grid></tri-grid>
                     <vertex-shader>
                         <code>
                             #version 300 es
@@ -496,20 +549,23 @@ Licensed under the EUPL -->
     
                             in vec4 instanceScene;
                             flat out ivec2 pos;
-    
-                            void main() {
-                                pos = ivec2(int(instanceScene.x),int(instanceScene.y));
 
+                            vec4 squareGrid() {
                                 vec4 vertex =
                                     vec4(size, size, 1.0, 1.0)
                                     * position
                                     + vec4(instanceScene.xy * vec2(size),
-                                        0.0, 0.0);
+                                    0.0, 0.0);
 
                                 vec4 transformedVertex = panZoomMatrix * vertex;
                                 vec4 projected = projection * transformedVertex;
+                                return projected;
+                            }
 
-                                gl_Position = projected;
+                            void main() {
+                                pos = ivec2(int(instanceScene.x),int(instanceScene.y));
+
+                                gl_Position = squareGrid();
                             }
                         </code>
                     </vertex-shader>
@@ -549,13 +605,15 @@ Licensed under the EUPL -->
                         <draw-vao src="quad-vao" mode="TRIANGLE_FAN" count="4" type="UNSIGNED_SHORT">
                         </draw-vao>
                         <uniform-1fv var="isLines" value="1"></uniform-1fv>
-                        <draw-vao src="quad-vao" mode="LINE_STRIP" count="3" type="UNSIGNED_SHORT">
+                        <draw-vao src="quad-vao" mode="LINE_STRIP" count="4" type="UNSIGNED_SHORT">
                         </draw-vao>
                     </use-program>
                 </draw-loop>
             </draw-calls>
         </webgl-canvas>
     </shader-canvas>
+    <!-- for squares 
+-->
     <div id="elements" style="display: none">
         [ 3, 2, 1, 0 ]
     </div>
@@ -566,18 +624,18 @@ Licensed under the EUPL -->
         1.0, 1.0, 0.5, 1.0,
         0.0, 1.0, 0.5, 1.0]
     </div>
-
     <!-- For triangles use these points and adjust the instance count:
-                            <div id="points" style="display: none">
-                                [ 0, 0, 0, 1,
-                                1, 0, 0, 1,
-                                0.5, 0.866, 0, 1
-                                ]
-                            </div>
-                            <div id="elements" style="display: none">
-                                [ 0, 1, 2, 0 ]
-                            </div>
+    <div id="points" style="display: none">
+        [ 0, 0, 0, 1,
+        1, 0, 0, 1,
+        0.5, 0.8660254037844386, 0, 1
+        ]
+    </div>
+    <div id="elements" style="display: none">
+        [ 0, 1, 2, 0 ]
+    </div>
     -->
+
     <script type="module">
         import { ShaderCanvas } from "../../build/shader_canvas.js";
         window.addEventListener("load", () => {
