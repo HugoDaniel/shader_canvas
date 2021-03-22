@@ -1,6 +1,6 @@
 build/shader_canvas.js: shader_canvas.ts
 	mkdir -p $(dir $@)
-	deno bundle $< > $@
+	deno bundle -c denoconfig.json $< > $@
 
 docs/documentation.md:
 	touch docs/documentation.md
