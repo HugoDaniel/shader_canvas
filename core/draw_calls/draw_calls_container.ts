@@ -162,16 +162,7 @@ export class DrawCallsContainer extends CanMerge {
     }
     // Create draw function
     this.drawCalls = () => {
-      if (this.fence()) {
-        console.log("DRAW CALLS: IN FENCE");
-        return;
-      }
-      // console.log("DRAWING");
-      /*
-      if (this.readFunction) {
-        this.readFunction();
-      }
-      */
+      if (this.fence()) return;
 
       for (let i = 0; i < updaters.length; i++) {
         updaters[i]();
@@ -179,12 +170,6 @@ export class DrawCallsContainer extends CanMerge {
       for (let i = 0; i < this.drawFunctions.length; i++) {
         this.drawFunctions[i]();
       }
-      /*
-      if (this.read < 60) {
-        this.readFunction();
-        this.read++;
-      }
-      */
     };
     return this.drawCalls;
   }

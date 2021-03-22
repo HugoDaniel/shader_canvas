@@ -137,7 +137,7 @@ export class CanHaveModules extends globalThis.HTMLElement {
     removeModule?: boolean;
   }): boolean {
     let appliedPayload = false;
-    for (const child of [...this.children]) {
+    for (const child of Array.from(this.children)) {
       if (child instanceof CreateModule) {
         const name = child.nodeName.toLowerCase();
         // Get the payload for this children

@@ -86,7 +86,6 @@ export class ReadPixels extends globalThis.HTMLElement {
 
     // Create the fence
     this.getPixels = async (dest) => {
-      console.log("GETTING PIXELS");
       this.readAllowed = true;
       await waitFrame();
       this.readAllowed = false;

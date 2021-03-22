@@ -56,7 +56,7 @@ export class ShaderCanvasContainer<T> extends CanMerge {
   createContentComponentsWith = (
     parent: CustomElementConstructor,
   ) => {
-    for (const child of [...this.children]) {
+    for (const child of Array.from(this.children)) {
       const childName = child.tagName.toLocaleLowerCase();
       if (!childName) {
         throw new Error(`Unable to read ${this.tagName} child`);

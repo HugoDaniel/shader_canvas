@@ -14,7 +14,7 @@ export class Payload {
 
   constructor(root: HTMLElement) {
     this.tagName = root.tagName;
-    this.contents = [...root.children];
+    this.contents = Array.from(root.children);
   }
 
   static walkTheDOM(

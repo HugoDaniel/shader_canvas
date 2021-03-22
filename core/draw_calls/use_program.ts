@@ -173,7 +173,7 @@ export class UseProgram extends globalThis.HTMLElement {
 
     // Get draw function for each child instance and put it in the
     // `drawCalls` array.
-    for (const child of [...this.children]) {
+    for (const child of Array.from(this.children)) {
       if (child instanceof DrawVAO) {
         child.initialize(gl, context);
         this.drawCalls.push(child.drawVao);

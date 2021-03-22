@@ -132,9 +132,10 @@ export class ActiveTexture extends globalThis.HTMLElement {
         gl.activeTexture(gl.TEXTURE0 + index);
         texture.bindTexture();
       });
+      const children = Array.from(this.children);
       // If there are no <tex-parameter-i> child tags, add the default one
       if (
-        [...this.children].filter((c) => c instanceof TexParameterI).length ===
+        children.filter((c) => c instanceof TexParameterI).length ===
           0
       ) {
         const texParamElem = globalThis.document.createElement(
@@ -148,7 +149,7 @@ export class ActiveTexture extends globalThis.HTMLElement {
 
       // create the call to activeTexture and bindTexture (with the texture
       // unit from the order)
-      for (const child of [...this.children]) {
+      for (const child of children) {
         if (child instanceof TexParameterI || child instanceof TexParameterF) {
           child.initialize(gl);
           const drawFunction = child.texParameter;

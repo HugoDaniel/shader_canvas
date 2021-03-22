@@ -99,7 +99,7 @@ export class CreateTexture extends globalThis.HTMLElement {
       return;
     }
     gl.bindTexture(gl.TEXTURE_2D, this.texture);
-    for (const child of [...this.children]) {
+    for (const child of Array.from(this.children)) {
       if (child instanceof TexImage2D) {
         child.initialize(gl); // creates the load function
         await child.load(this.texture); // call it

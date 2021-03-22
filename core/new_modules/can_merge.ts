@@ -28,8 +28,8 @@ export class CanMerge extends globalThis.HTMLElement {
   merge(dest: Element | undefined | null, root: Element = this) {
     // Early return if there is no element
     if (!dest) return;
-    const destChildNames = new Map([...dest.children].map(getChildName));
-    for (const child of [...root.children]) {
+    const destChildNames = new Map(Array.from(dest.children).map(getChildName));
+    for (const child of Array.from(root.children)) {
       if (destChildNames.has(child.tagName)) {
         // Copy attributes from this child into the existing destination child
         const destChild = destChildNames.get(child.tagName);
@@ -60,10 +60,11 @@ function getChildName(c: Element): [string, Element] {
  * exists in the destination.
  */
 function copyAttributes(src: Element, dest: Element | undefined) {
-  // Do nothing if dest is undefined or if src has no attributes
-  if (dest && src.hasAttributes()) {
-    for (const { name, value } of src.attributes) {
-      dest.setAttribute(name, value);
-    }
-  }
+  if (!dest) return;
+  const attributes = Array.prototype.slice.call(src.attributes);
+  let attr;
+  do {
+    dest.setAttribute(attr.nodeName, attr.nodeValue);
+    attr = attributes.pop();
+  } while (attr);
 }

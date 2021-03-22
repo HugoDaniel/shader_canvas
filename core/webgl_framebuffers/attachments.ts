@@ -112,7 +112,7 @@ export class FramebufferRenderbuffer extends FramebufferAttachment {
     }
     gl.bindRenderbuffer(gl.RENDERBUFFER, this.renderbuffer);
     // Set the Renderbuffer Storage
-    for (const child of this.children) {
+    for (const child of Array.from(this.children)) {
       if (child instanceof RenderbufferStorage) {
         child.initialize(gl);
       }

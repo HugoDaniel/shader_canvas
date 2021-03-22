@@ -98,7 +98,7 @@ export class NewModules extends ShaderCanvasContainer<CreateModule> {
     await this.whenLoaded;
     this.createContentComponentsWith(CreateModule);
     // TODO: Fetch the import modules, and place them as children
-    for (const child of [...this.children]) {
+    for (const child of Array.from(this.children)) {
       if (child instanceof CreateModule) {
         this.payloads.push(child.initializeModule(initializers));
       }

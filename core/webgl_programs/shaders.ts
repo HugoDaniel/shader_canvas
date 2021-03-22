@@ -101,9 +101,9 @@ class ShaderCode extends globalThis.HTMLElement {
   private readCode = () => {
     // Read all <code> tags
     const codeTags = [
-      ...this.getElementsByTagName("code-before"),
-      ...this.getElementsByTagName("code"),
-      ...this.getElementsByTagName("code-after"),
+      ...Array.from(this.getElementsByTagName("code-before")),
+      ...Array.from(this.getElementsByTagName("code")),
+      ...Array.from(this.getElementsByTagName("code-after")),
     ];
     // Read the elements textContent's
     return this.getCode(codeTags);

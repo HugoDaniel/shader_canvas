@@ -46,7 +46,7 @@ export class WebGLProgramPart extends CanMerge {
    */
   private mergeCodeChildren(dest: Element | null, node: Element | null) {
     if (node && dest) {
-      for (const child of node.childNodes) {
+      for (const child of Array.from(node.childNodes)) {
         if (
           child.nodeName === "CODE" || child.nodeName === "CODE-BEFORE" ||
           child.nodeName === "CODE-AFTER"

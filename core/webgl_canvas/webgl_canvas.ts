@@ -1,6 +1,5 @@
 // Copyright 2021 Hugo Daniel Henriques Oliveira Gomes. All rights reserved.
 // Licensed under the EUPL
-import "https://deno.land/x/domtype@v1.0.4/mod.ts";
 import type { WebGLCanvasRuntime } from "./runtime.ts";
 import { WebGLPrograms } from "../webgl_programs/webgl_programs.ts";
 import { WebGLBuffers } from "../webgl_buffers/webgl_buffers.ts";
