@@ -7,7 +7,7 @@ import {
   FramebufferTextureLayer,
 } from "./attachments.ts";
 import { WebGLTextures } from "../webgl_textures/webgl_textures.ts";
-import { glError } from "../common/errors.ts";
+import { glEnumToString, glError } from "../common/errors.ts";
 
 /**
  * The CreateFrameBuffer class is intended to be used to create custom tags
@@ -125,11 +125,15 @@ export class CreateFramebuffer extends globalThis.HTMLElement {
     }
     // Check if attachments work
     if (gl.checkFramebufferStatus(target) !== gl.FRAMEBUFFER_COMPLETE) {
+      const status = gl.checkFramebufferStatus(target);
       console.warn(
-        `Framebuffer <${this.nodeName}> attachments don't work together.`,
+        `Framebuffer <${this.nodeName}> attachments don't work together: ${
+          glEnumToString(gl, status)
+        }`,
       );
       glError(gl);
     }
+
     gl.bindFramebuffer(target, null);
   }
 }

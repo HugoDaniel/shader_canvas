@@ -318,7 +318,12 @@ export class BufferData extends globalThis.HTMLElement {
         // Useful to calculate the draw count when drawing this buffer as the
         // source of vertices
         this.length = Math.floor(this.data.byteLength / bytesPerItem);
-        console.log("CREATED BUFFER", this.length, bytesPerItem);
+        console.log(
+          "CREATED BUFFER",
+          this.parentElement?.tagName,
+          this.length,
+          bytesPerItem,
+        );
         if (this.offset > 0 && isArrayBufferView(this.data)) {
           gl.bufferData(target, this.data, usage, this.offset);
           this.length = this.length - this.offset;

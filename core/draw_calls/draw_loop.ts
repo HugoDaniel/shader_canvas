@@ -56,8 +56,8 @@ export class DrawLoop extends DrawCallsContainer {
    * The function that will be registered by the `requestFrame()`.
    */
   raf = () => {
-    this.intervalId = this.requestFrame();
     this.drawCalls();
+    this.intervalId = this.requestFrame();
   };
   /**
    * Starts the loop, calls the function set at the `requestFrame` for the loop
@@ -102,6 +102,7 @@ export class DrawLoop extends DrawCallsContainer {
    * by default the `window.requestAnimationFrame` is used.
    */
   requestFrame = () => window.requestAnimationFrame(this.raf);
+
   /**
    * Creates the drawing function that performs the action of each child tag
    * declared.
@@ -123,6 +124,7 @@ export class DrawLoop extends DrawCallsContainer {
     for (const functions of context.modulesFunctions.values()) {
       if (functions.onFrame && typeof functions.onFrame === "function") {
         const f = functions.onFrame;
+        // Start by calling the module "onFrame" function:
         this.drawFunctions.unshift(() => f(context));
       }
     }

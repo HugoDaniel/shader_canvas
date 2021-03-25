@@ -177,6 +177,7 @@ export class DrawVAO extends globalThis.HTMLElement {
     const instances = this.instanceCount;
     if (this.vao.hasElementArrayBuffer) {
       if (instances > 0) {
+        console.log("ELEMENTS WITH INSTANCES", instances, count);
         this.drawVao = () => {
           bindVao();
           gl.drawElementsInstanced(
@@ -184,7 +185,7 @@ export class DrawVAO extends globalThis.HTMLElement {
             count,
             type,
             offset,
-            this.instanceCount,
+            instances,
           );
         };
       } else {
@@ -195,11 +196,13 @@ export class DrawVAO extends globalThis.HTMLElement {
       }
     } else {
       if (instances > 0) {
+        console.log("ARRAYS WITH INSTANCES", instances, count);
         this.drawVao = () => {
           bindVao();
-          gl.drawArraysInstanced(mode, first, count, this.instanceCount);
+          gl.drawArraysInstanced(mode, first, count, instances);
         };
       } else {
+        console.log("WITHOUT INSTANCES");
         this.drawVao = () => {
           bindVao();
           gl.drawArrays(mode, first, count);

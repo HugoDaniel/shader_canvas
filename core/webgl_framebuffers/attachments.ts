@@ -42,6 +42,7 @@ export class FramebufferTexture2D extends FramebufferAttachment {
     const attachmentPoint = gl[this.attachment];
     const texTarget = gl[this.texture];
     const fbTarget = gl[this.target];
+    texture.bindTexture();
     gl.framebufferTexture2D(fbTarget, attachmentPoint, texTarget, textureId, 0);
   }
 }

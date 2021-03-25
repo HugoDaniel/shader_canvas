@@ -447,7 +447,9 @@ export class WebGLCanvas extends globalThis.HTMLElement {
    * This will throw an exception if there is no such context returned. 
    */
   private initializeGL() {
-    const ctx = this.canvas.getContext("webgl2");
+    const ctx = this.canvas.getContext("webgl2", {
+      desynchronized: true,
+    });
     if (
       !ctx ||
       typeof (ctx as WebGL2RenderingContext).getContextAttributes !==

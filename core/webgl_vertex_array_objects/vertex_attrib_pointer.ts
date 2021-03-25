@@ -110,22 +110,36 @@ export class VertexAttribPointer extends globalThis.HTMLElement {
     const divisor = this.divisor;
     // Create the wrapper for the `gl.vertexAttribPointer`. Its closure will
     // have the arguments available to be passed to the WebGL counterpart.
-    this.vertexAttribPointer = () => {
-      gl.enableVertexAttribArray(location);
-
-      gl.vertexAttribPointer(
-        location,
-        size,
-        type,
-        normalized,
-        stride,
-        offset,
-      );
-
-      if (divisor > 0) {
-        gl.vertexAttribDivisor(location, divisor);
-      }
-    };
+    if (this.type.includes("FLOAT")) {
+      this.vertexAttribPointer = () => {
+        gl.enableVertexAttribArray(location);
+        gl.vertexAttribPointer(
+          location,
+          size,
+          type,
+          normalized,
+          stride,
+          offset,
+        );
+        if (divisor > 0) {
+          gl.vertexAttribDivisor(location, divisor);
+        }
+      };
+    } else {
+      this.vertexAttribPointer = () => {
+        gl.enableVertexAttribArray(location);
+        gl.vertexAttribIPointer(
+          location,
+          size,
+          type,
+          stride,
+          offset,
+        );
+        if (divisor > 0) {
+          gl.vertexAttribDivisor(location, divisor);
+        }
+      };
+    }
     // Call it right away.
     this.vertexAttribPointer();
   }

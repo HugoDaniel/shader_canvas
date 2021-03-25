@@ -99,6 +99,9 @@ class ClearFlags extends globalThis.HTMLElement {
         return maskString.split("|").map((s)=>s.trim()
         );
     }
+    get flags() {
+        return this.mask;
+    }
     clearFlags = nop;
     initialize(gl) {
         const flags = this.mask;
@@ -133,7 +136,7 @@ class DepthFunc extends globalThis.HTMLElement {
     initialize(gl) {
         const func = gl[this.func];
         this.depthFunc = ()=>{
-            gl.enable(gl.DEPTH);
+            gl.enable(gl.DEPTH_TEST);
             gl.depthFunc(func);
         };
     }
@@ -377,9 +380,8 @@ class ActiveTexture extends globalThis.HTMLElement {
                 gl.activeTexture(gl.TEXTURE0 + index);
                 texture.bindTexture();
             });
-            if ([
-                ...this.children
-            ].filter((c)=>c instanceof TexParameterI
+            const children = Array.from(this.children);
+            if (children.filter((c)=>c instanceof TexParameterI
             ).length === 0) {
                 const texParamElem = globalThis.document.createElement("tex-parameter-i");
                 texParamElem.setAttribute("target", "TEXTURE_2D");
@@ -387,9 +389,7 @@ class ActiveTexture extends globalThis.HTMLElement {
                 texParamElem.setAttribute("param", "LINEAR");
                 this.appendChild(texParamElem);
             }
-            for (const child of [
-                ...this.children
-            ]){
+            for (const child of children){
                 if (child instanceof TexParameterI || child instanceof TexParameterF) {
                     child.initialize(gl);
                     const drawFunction = child.texParameter;
@@ -468,9 +468,10 @@ class DrawVAO extends globalThis.HTMLElement {
         const instances = this.instanceCount;
         if (this.vao.hasElementArrayBuffer) {
             if (instances > 0) {
+                console.log("ELEMENTS WITH INSTANCES", instances, count);
                 this.drawVao = ()=>{
                     bindVao();
-                    gl.drawElementsInstanced(mode, count, type, offset, this.instanceCount);
+                    gl.drawElementsInstanced(mode, count, type, offset, instances);
                 };
             } else {
                 this.drawVao = ()=>{
@@ -480,11 +481,13 @@ class DrawVAO extends globalThis.HTMLElement {
             }
         } else {
             if (instances > 0) {
+                console.log("ARRAYS WITH INSTANCES", instances, count);
                 this.drawVao = ()=>{
                     bindVao();
-                    gl.drawArraysInstanced(mode, first, count, this.instanceCount);
+                    gl.drawArraysInstanced(mode, first, count, instances);
                 };
             } else {
+                console.log("WITHOUT INSTANCES");
                 this.drawVao = ()=>{
                     bindVao();
                     gl.drawArrays(mode, first, count);
@@ -675,9 +678,7 @@ class UseProgram extends globalThis.HTMLElement {
         if (renderFunction) {
             this.drawCalls.push(renderFunction);
         }
-        for (const child of [
-            ...this.children
-        ]){
+        for (const child of Array.from(this.children)){
             if (child instanceof DrawVAO) {
                 child.initialize(gl, context);
                 this.drawCalls.push(child.drawVao);
@@ -688,7 +689,7 @@ class UseProgram extends globalThis.HTMLElement {
                 await child.initialize(gl, context, this.program);
                 this.drawCalls = this.drawCalls.concat(child.drawCalls);
             } else {
-                console.warn(`<use-program>: No valid child found in: <${child.tagName.toLocaleLowerCase()}>`);
+                console.warn(`<use-program>: This tag "<${child.tagName.toLocaleLowerCase()}>" is not a valid child of use-program`);
             }
         }
         this.drawProgram = ()=>{
@@ -727,12 +728,8 @@ class CanMerge extends globalThis.HTMLElement {
     module = "unknown";
     merge(dest, root = this) {
         if (!dest) return;
-        const destChildNames = new Map([
-            ...dest.children
-        ].map(getChildName));
-        for (const child of [
-            ...root.children
-        ]){
+        const destChildNames = new Map(Array.from(dest.children).map(getChildName));
+        for (const child of Array.from(root.children)){
             if (destChildNames.has(child.tagName)) {
                 const destChild = destChildNames.get(child.tagName);
                 copyAttributes(child, destChild);
@@ -750,10 +747,213 @@ function getChildName(c) {
     ];
 }
 function copyAttributes(src, dest) {
-    if (dest && src.hasAttributes()) {
-        for (const { name , value  } of src.attributes){
-            dest.setAttribute(name, value);
+    if (!dest) return;
+    const attributes = Array.prototype.slice.call(src.attributes);
+    let attr;
+    do {
+        dest.setAttribute(attr.nodeName, attr.nodeValue);
+        attr = attributes.pop();
+    }while (attr)
+}
+class DrawBuffers extends globalThis.HTMLElement {
+    static tag = "draw-buffers";
+    get buffers() {
+        const parsed = JSON.parse(this.getAttribute("buffers") || "[]");
+        return parsed.map(readBuffers1);
+    }
+    drawBuffers = nop;
+    initialize(gl) {
+        const buffers = this.buffers.map((b)=>gl[b]
+        );
+        this.drawBuffers = ()=>{
+            gl.drawBuffers(buffers);
+        };
+    }
+}
+function readBuffers1(attrib) {
+    switch(attrib){
+        case "BACK":
+        case "COLOR_ATTACHMENT0":
+        case "COLOR_ATTACHMENT1":
+        case "COLOR_ATTACHMENT2":
+        case "COLOR_ATTACHMENT3":
+        case "COLOR_ATTACHMENT4":
+        case "COLOR_ATTACHMENT5":
+        case "COLOR_ATTACHMENT6":
+        case "COLOR_ATTACHMENT7":
+        case "COLOR_ATTACHMENT8":
+        case "COLOR_ATTACHMENT9":
+        case "COLOR_ATTACHMENT10":
+        case "COLOR_ATTACHMENT11":
+        case "COLOR_ATTACHMENT12":
+        case "COLOR_ATTACHMENT13":
+        case "COLOR_ATTACHMENT14":
+        case "COLOR_ATTACHMENT15":
+            return attrib;
+        default:
+            return "NONE";
+    }
+}
+class ReadPixels extends globalThis.HTMLElement {
+    static tag = "read-pixels";
+    get x() {
+        return Number(this.getAttribute("x"));
+    }
+    get y() {
+        return Number(this.getAttribute("y"));
+    }
+    get offset() {
+        return Number(this.getAttribute("offset"));
+    }
+    get width() {
+        return Number(this.getAttribute("width"));
+    }
+    get height() {
+        return Number(this.getAttribute("height"));
+    }
+    get format() {
+        return readPixelDataFormat(this.getAttribute("format"));
+    }
+    get type() {
+        return readPixelDataType(this.getAttribute("type"));
+    }
+    get dest() {
+        return this.getAttribute("dest");
+    }
+    isDrawingBlocked = false;
+    getPixels = (id)=>Promise.reject(`"readPixels()" is undefined`)
+    ;
+    readPixels = nop;
+    initialize(gl, buffers) {
+        const x = this.x;
+        const y = this.y;
+        const w = this.width || gl.drawingBufferWidth;
+        const h = this.height || gl.drawingBufferHeight;
+        const format = gl[this.format];
+        const type = gl[this.type];
+        const offset = this.offset;
+        const dest = this.dest;
+        let bindPixelBuffer = ()=>0
+        ;
+        if (dest) {
+            const buffer = buffers.content.get(dest);
+            if (!buffer || !buffer.buffer) {
+                console.warn(`Could not find the buffer "${dest}" in <draw-pixels>.`);
+                return;
+            }
+            bindPixelBuffer = buffer.bindBuffer;
         }
+        this.readPixels = ()=>{
+            if (this.readAllowed) {
+                bindPixelBuffer();
+                gl.readPixels(x, y, w, h, format, type, offset);
+            }
+        };
+        this.getPixels = async (dest1)=>{
+            this.readAllowed = true;
+            await waitFrame();
+            this.readAllowed = false;
+            this.isDrawingBlocked = true;
+            await fence1(gl, ()=>{
+                gl.getBufferSubData(gl.PIXEL_PACK_BUFFER, 0, dest1, 0);
+                this.isDrawingBlocked = false;
+            });
+            return dest1;
+        };
+    }
+    readAllowed = false;
+}
+function readPixelDataType(t) {
+    switch(t){
+        case "UNSIGNED_BYTE":
+        case "UNSIGNED_SHORT_5_6_5":
+        case "UNSIGNED_SHORT_4_4_4_4":
+        case "UNSIGNED_SHORT_5_5_5_1":
+        case "FLOAT":
+        case "BYTE":
+        case "UNSIGNED_INT_2_10_10_10_REV":
+        case "HALF_FLOAT":
+        case "SHORT":
+        case "UNSIGNED_SHORT":
+        case "INT":
+        case "UNSIGNED_INT":
+        case "UNSIGNED_INT_10F_11F_11F_REV":
+        case "UNSIGNED_INT_5_9_9_9_REV":
+            return t;
+        default:
+            return "UNSIGNED_BYTE";
+    }
+}
+function readPixelDataFormat(t) {
+    switch(t){
+        case "ALPHA":
+        case "RGB":
+        case "RGBA":
+        case "RED":
+        case "RG":
+        case "RED_INTEGER":
+        case "RG_INTEGER":
+        case "RGB_INTEGER":
+        case "RGBA_INTEGER":
+            return t;
+        default:
+            return "RGBA";
+    }
+}
+async function fence1(gl, action) {
+    const sync = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
+    if (!sync) return;
+    gl.flush();
+    for(let i = 0; i < 6; i++){
+        await waitFrame();
+        const syncStatus = gl.clientWaitSync(sync, gl.SYNC_FLUSH_COMMANDS_BIT, 0);
+        if (syncStatus === gl.ALREADY_SIGNALED || syncStatus === gl.CONDITION_SATISFIED) {
+            break;
+        }
+    }
+    gl.deleteSync(sync);
+    return action();
+}
+function waitFrame() {
+    return new Promise((resolve)=>{
+        window.requestAnimationFrame(resolve);
+    });
+}
+class ReadBuffer extends globalThis.HTMLElement {
+    static tag = "read-buffer";
+    get src() {
+        return readBuffers2(this.getAttribute("src"));
+    }
+    readBuffer = nop;
+    initialize(gl) {
+        const buffer = gl[this.src];
+        this.readBuffer = ()=>{
+            gl.readBuffer(buffer);
+        };
+    }
+}
+function readBuffers2(attrib) {
+    switch(attrib){
+        case "BACK":
+        case "COLOR_ATTACHMENT0":
+        case "COLOR_ATTACHMENT1":
+        case "COLOR_ATTACHMENT2":
+        case "COLOR_ATTACHMENT3":
+        case "COLOR_ATTACHMENT4":
+        case "COLOR_ATTACHMENT5":
+        case "COLOR_ATTACHMENT6":
+        case "COLOR_ATTACHMENT7":
+        case "COLOR_ATTACHMENT8":
+        case "COLOR_ATTACHMENT9":
+        case "COLOR_ATTACHMENT10":
+        case "COLOR_ATTACHMENT11":
+        case "COLOR_ATTACHMENT12":
+        case "COLOR_ATTACHMENT13":
+        case "COLOR_ATTACHMENT14":
+        case "COLOR_ATTACHMENT15":
+            return attrib;
+        default:
+            return "NONE";
     }
 }
 const dependencies = [
@@ -765,8 +965,8 @@ const dependencies = [
     ClearFlags,
     DepthFunc,
     ViewportTransformation,
-    UseProgram,
     DrawVAO,
+    UseProgram,
     SetUniform1iv,
     SetUniform2iv,
     SetUniform3iv,
@@ -774,12 +974,25 @@ const dependencies = [
     SetUniform1fv,
     SetUniform2fv,
     SetUniform3fv,
-    SetUniform4fv, 
+    SetUniform4fv,
+    DrawBuffers,
+    ReadPixels,
+    ReadBuffer, 
+];
+const dependsOn2 = [
+    ...dependencies
 ];
 class DrawCallsContainer extends CanMerge {
     drawFunctions = [];
     drawCalls = nop;
+    fence = ()=>this.fenceChildren.some(this.isDrawingBlocked)
+    ;
+    isDrawingBlocked = ({ isDrawingBlocked  })=>isDrawingBlocked
+    ;
+    fenceChildren = [];
+    runDrawCalls = true;
     async buildDrawFunction(gl, context, renderers, updaters) {
+        this.gl = gl;
         for (const child of Array.from(this.children)){
             if (child instanceof ClearColor) {
                 child.initialize(gl);
@@ -805,12 +1018,26 @@ class DrawCallsContainer extends CanMerge {
             } else if (child instanceof ViewportTransformation) {
                 child.initialize(gl);
                 this.drawFunctions.push(child.viewport);
+            } else if (child instanceof ReadBuffer) {
+                child.initialize(gl);
+                this.drawFunctions.push(child.readBuffer);
+            } else if (child instanceof ReadPixels) {
+                child.initialize(gl, context.buffers);
+                this.drawFunctions.push(child.readPixels);
+                this.fenceChildren.push(child);
             } else if (child instanceof UseProgram) {
                 await child.initialize(gl, context, renderers);
                 this.drawFunctions.push(child.drawProgram);
+            } else if (child instanceof DrawBuffers) {
+                child.initialize(gl);
+                this.drawFunctions.push(child.drawBuffers);
+            } else if (child instanceof BindFramebuffer && child.runDrawCalls) {
+                await child.initialize(gl, context, renderers, updaters);
+                this.drawFunctions.push(child.drawCalls);
             }
         }
         this.drawCalls = ()=>{
+            if (this.fence()) return;
             for(let i = 0; i < updaters.length; i++){
                 updaters[i]();
             }
@@ -820,18 +1047,57 @@ class DrawCallsContainer extends CanMerge {
         };
         return this.drawCalls;
     }
+    readFunction = undefined;
+    read = 0;
 }
-const dependsOn2 = [
+class BindFramebuffer extends DrawCallsContainer {
+    static tag = "bind-framebuffer";
+    whenLoaded = Promise.all(dependsOn2.map((c)=>globalThis.customElements.whenDefined(c.tag)
+    ));
+    get src() {
+        return this.getAttribute("src");
+    }
+    async initialize(gl, context, renderers, updaters) {
+        await this.whenLoaded;
+        const framebufferName = this.src;
+        if (!framebufferName) {
+            console.warn(`No "src" attribute found in <${BindFramebuffer}>.`);
+            return;
+        }
+        const framebuffer = context.framebuffers.content.get(framebufferName);
+        if (!framebuffer) {
+            console.warn(`Framebuffer "${framebufferName}" NOT FOUND in <${BindFramebuffer}>.\n\n        Make sure it is properly declared inside <webgl-framebuffers>.`);
+            return;
+        }
+        this.drawFunctions.push(framebuffer.bindFramebuffer);
+        const target = gl[framebuffer.target];
+        await this.buildDrawFunction(gl, context, renderers, updaters);
+        this.drawFunctions.push(()=>{
+            gl.bindFramebuffer(target, null);
+        });
+        this.gl = gl;
+    }
+}
+[
+    BindFramebuffer,
+    ...dependsOn2
+].map((component)=>{
+    if (!globalThis.customElements.get(component.tag)) {
+        globalThis.customElements.define(component.tag, component);
+    }
+});
+const dependsOn3 = [
     ...dependencies
 ];
 class DrawLoop extends DrawCallsContainer {
     static tag = "draw-loop";
-    whenLoaded = Promise.all(dependsOn2.map((c)=>globalThis.customElements.whenDefined(c.tag)
+    whenLoaded = Promise.all(dependsOn3.map((c)=>globalThis.customElements.whenDefined(c.tag)
     ));
+    runDrawCalls = false;
     intervalId = -1;
     raf = ()=>{
-        this.intervalId = this.requestFrame();
         this.drawCalls();
+        this.intervalId = this.requestFrame();
     };
     start() {
         if (this.intervalId !== -1) return;
@@ -857,6 +1123,7 @@ class DrawLoop extends DrawCallsContainer {
     ;
     async initialize(gl, context, renderers, updaters) {
         await this.whenLoaded;
+        console.log("DRAW LOOP RENDERERS", renderers);
         await this.buildDrawFunction(gl, context, renderers, updaters);
         for (const functions of context.modulesFunctions.values()){
             if (functions.onFrame && typeof functions.onFrame === "function") {
@@ -877,19 +1144,19 @@ class DrawLoop extends DrawCallsContainer {
 }
 [
     DrawLoop,
-    ...dependsOn2
+    ...dependsOn3
 ].map((component)=>{
     if (!globalThis.customElements.get(component.tag)) {
         globalThis.customElements.define(component.tag, component);
     }
 });
-const dependsOn3 = [
+const dependsOn4 = [
     DrawLoop,
     ...dependencies
 ];
 class DrawCalls extends DrawCallsContainer {
     static tag = "draw-calls";
-    whenLoaded = Promise.all(dependsOn3.map((c)=>globalThis.customElements.whenDefined(c.tag)
+    whenLoaded = Promise.all(dependsOn4.map((c)=>globalThis.customElements.whenDefined(c.tag)
     ));
     async initialize(gl, context, renderers, updaters) {
         await this.whenLoaded;
@@ -903,7 +1170,7 @@ class DrawCalls extends DrawCallsContainer {
 }
 [
     DrawCalls,
-    ...dependsOn3
+    ...dependsOn4
 ].map((component)=>{
     if (!globalThis.customElements.get(component.tag)) {
         globalThis.customElements.define(component.tag, component);
@@ -912,9 +1179,7 @@ class DrawCalls extends DrawCallsContainer {
 class ShaderCanvasContainer extends CanMerge {
     content = new Map();
     createContentComponentsWith = (parent)=>{
-        for (const child of [
-            ...this.children
-        ]){
+        for (const child of Array.from(this.children)){
             const childName = child.tagName.toLocaleLowerCase();
             if (!childName) {
                 throw new Error(`Unable to read ${this.tagName} child`);
@@ -1254,9 +1519,9 @@ class ShaderCode extends globalThis.HTMLElement {
     }
     readCode = ()=>{
         const codeTags = [
-            ...this.getElementsByTagName("code-before"),
-            ...this.getElementsByTagName("code"),
-            ...this.getElementsByTagName("code-after"), 
+            ...Array.from(this.getElementsByTagName("code-before")),
+            ...Array.from(this.getElementsByTagName("code")),
+            ...Array.from(this.getElementsByTagName("code-after")), 
         ];
         return this.getCode(codeTags);
     };
@@ -1311,9 +1576,7 @@ class Payload {
     contents = [];
     constructor(root1){
         this.tagName = root1.tagName;
-        this.contents = [
-            ...root1.children
-        ];
+        this.contents = Array.from(root1.children);
     }
     static walkTheDOM(node, func) {
         func(node);
@@ -1396,9 +1659,7 @@ class CanHaveModules extends globalThis.HTMLElement {
     applyPayloads({ payloads =[] , payloadChildFilter =()=>true
      , destinationRoot =this , destinationChooser , removeModule =true  }) {
         let appliedPayload = false;
-        for (const child of [
-            ...this.children
-        ]){
+        for (const child of Array.from(this.children)){
             if (child instanceof CreateModule) {
                 const name = child.nodeName.toLowerCase();
                 const payload = payloads.find((p)=>p.tagName.toLowerCase() === name
@@ -1600,7 +1861,7 @@ class WebGLProgramPart extends CanMerge {
     static tag = "webgl-program-part";
     mergeCodeChildren(dest, node) {
         if (node && dest) {
-            for (const child of node.childNodes){
+            for (const child of Array.from(node.childNodes)){
                 if (child.nodeName === "CODE" || child.nodeName === "CODE-BEFORE" || child.nodeName === "CODE-AFTER") {
                     const destSibling = dest.querySelector(child.nodeName);
                     const codeChild = child.cloneNode(true);
@@ -1624,20 +1885,18 @@ class WebGLProgramPart extends CanMerge {
         this.mergeCodeChildren(dest.querySelector(FragmentShader.tag), fragmentElem);
     }
 }
-const dependsOn4 = [
+const dependsOn5 = [
     WebGLProgramPart
 ];
 class NewModules extends ShaderCanvasContainer {
     static tag = "new-modules";
-    whenLoaded = Promise.all(dependsOn4.map((c)=>globalThis.customElements.whenDefined(c.tag)
+    whenLoaded = Promise.all(dependsOn5.map((c)=>globalThis.customElements.whenDefined(c.tag)
     ));
     payloads = [];
     async initialize(initializers) {
         await this.whenLoaded;
         this.createContentComponentsWith(CreateModule);
-        for (const child of [
-            ...this.children
-        ]){
+        for (const child of Array.from(this.children)){
             if (child instanceof CreateModule) {
                 this.payloads.push(child.initializeModule(initializers));
             }
@@ -1647,20 +1906,20 @@ class NewModules extends ShaderCanvasContainer {
 }
 [
     NewModules,
-    ...dependsOn4
+    ...dependsOn5
 ].map((component)=>{
     if (!globalThis.customElements.get(component.tag)) {
         globalThis.customElements.define(component.tag, component);
     }
 });
-const dependsOn5 = [
+const dependsOn6 = [
     VertexShader,
     FragmentShader,
     NewModules
 ];
 class WebGLPrograms extends ShaderCanvasContainer {
     static tag = "webgl-programs";
-    whenLoaded = Promise.all(dependsOn5.map((c)=>globalThis.customElements.whenDefined(c.tag)
+    whenLoaded = Promise.all(dependsOn6.map((c)=>globalThis.customElements.whenDefined(c.tag)
     ));
     locations = {
         attributes: new Map()
@@ -1736,7 +1995,7 @@ class WebGLPrograms extends ShaderCanvasContainer {
 }
 [
     WebGLPrograms,
-    ...dependsOn5
+    ...dependsOn6
 ].map((component)=>{
     if (!globalThis.customElements.get(component.tag)) {
         globalThis.customElements.define(component.tag, component);
@@ -1878,6 +2137,9 @@ class BufferData extends globalThis.HTMLElement {
     get src() {
         return this.getAttribute("src");
     }
+    get bytesPerItem() {
+        return Number(this.getAttribute("bytesPerItem")) || 8;
+    }
     length = 0;
     load = async ()=>{
     };
@@ -1899,6 +2161,18 @@ class BufferData extends globalThis.HTMLElement {
                     readQueryElement,
                     readSrcAsJSON
                 ], srcOverride);
+            } else if (this.target === "PIXEL_PACK_BUFFER" || this.target === "PIXEL_UNPACK_BUFFER") {
+                const s = this.size || gl.drawingBufferWidth * gl.drawingBufferHeight;
+                switch(this.bytesPerItem){
+                    case 1:
+                        this.data = new Uint8Array(s);
+                        break;
+                    case 2:
+                        this.data = new Uint16Array(s);
+                        break;
+                    default:
+                        this.data = new Uint32Array(s * 4);
+                }
             }
             gl.bindBuffer(target, buffer);
             if (this.data) {
@@ -1906,17 +2180,21 @@ class BufferData extends globalThis.HTMLElement {
                 if (Array.isArray(this.data)) {
                     if (target !== gl.ELEMENT_ARRAY_BUFFER) {
                         this.data = new Float32Array(this.data);
-                        bytesPerItem = 4;
+                        bytesPerItem = this.data.BYTES_PER_ELEMENT;
                     } else {
                         this.data = new Uint16Array(this.data);
-                        bytesPerItem = 2;
+                        bytesPerItem = this.data.BYTES_PER_ELEMENT;
                     }
+                } else if (this.target === "PIXEL_PACK_BUFFER" || this.target === "PIXEL_UNPACK_BUFFER") {
+                    bytesPerItem = this.data.BYTES_PER_ELEMENT;
                 }
                 this.length = Math.floor(this.data.byteLength / bytesPerItem);
+                console.log("CREATED BUFFER", this.parentElement?.tagName, this.length, bytesPerItem);
                 if (this.offset > 0 && isArrayBufferView(this.data)) {
                     gl.bufferData(target, this.data, usage, this.offset);
                     this.length = this.length - this.offset;
                 } else {
+                    console.log("UPLOADING DATA ARRAY");
                     gl.bufferData(target, this.data, usage);
                 }
             } else {
@@ -1927,7 +2205,6 @@ class BufferData extends globalThis.HTMLElement {
                     gl.bufferData(target, null, usage);
                 }
             }
-            gl.bindBuffer(target, null);
         };
     }
 }
@@ -1968,12 +2245,12 @@ class CreateBuffer extends globalThis.HTMLElement {
         }
     }
 }
-const dependsOn6 = [
+const dependsOn7 = [
     BufferData
 ];
 class WebGLBuffers extends ShaderCanvasContainer {
     static tag = "webgl-buffers";
-    whenLoaded = Promise.all(dependsOn6.map((c)=>globalThis.customElements.whenDefined(c.tag)
+    whenLoaded = Promise.all(dependsOn7.map((c)=>globalThis.customElements.whenDefined(c.tag)
     ));
     bindFunctionFor(bufferName) {
         const buffer = this.content.get(bufferName);
@@ -2004,7 +2281,309 @@ class WebGLBuffers extends ShaderCanvasContainer {
 }
 [
     WebGLBuffers,
-    ...dependsOn6
+    ...dependsOn7
+].map((component)=>{
+    if (!globalThis.customElements.get(component.tag)) {
+        globalThis.customElements.define(component.tag, component);
+    }
+});
+class RenderbufferStorage extends globalThis.HTMLElement {
+    static tag = "renderbuffer-storage";
+    get format() {
+        return readRenderbufferInternalFormat(this.getAttribute("format"));
+    }
+    get width() {
+        return Number(this.getAttribute("width"));
+    }
+    get height() {
+        return Number(this.getAttribute("height"));
+    }
+    initialize(gl) {
+        if (!gl.getExtension("EXT_color_buffer_float")) {
+            console.error("Color Buffer Float not supported");
+        }
+        const w = this.width || gl.drawingBufferWidth;
+        const h = this.height || gl.drawingBufferHeight;
+        gl.renderbufferStorage(gl.RENDERBUFFER, gl[this.format], w, h);
+    }
+}
+function readRenderbufferInternalFormat(format) {
+    switch(format){
+        case "RGBA4":
+        case "RGB565":
+        case "RGB5_A1":
+        case "DEPTH_COMPONENT16":
+        case "STENCIL_INDEX8":
+        case "DEPTH_STENCIL":
+        case "R8":
+        case "R8UI":
+        case "R8I":
+        case "R16UI":
+        case "R16I":
+        case "R32UI":
+        case "R32I":
+        case "RG8":
+        case "RG8UI":
+        case "RG8I":
+        case "RG16UI":
+        case "RG16I":
+        case "RG32UI":
+        case "RG32I":
+        case "RGB8":
+        case "RGBA8":
+        case "SRGB8_ALPHA8":
+        case "RGB10_A2":
+        case "RGBA8UI":
+        case "RGBA8I":
+        case "RGB10_A2UI":
+        case "RGBA16UI":
+        case "RGBA16I":
+        case "RGBA32I":
+        case "RGBA32UI":
+        case "DEPTH_COMPONENT24":
+        case "DEPTH_COMPONENT32F":
+        case "DEPTH24_STENCIL8":
+        case "DEPTH32F_STENCIL8":
+        case "R16F":
+        case "RG16F":
+        case "RGBA16F":
+        case "R32F":
+        case "RG32F":
+        case "RGBA32F":
+        case "R11F_G11F_B10F":
+            return format;
+        default:
+            return "RGBA8";
+    }
+}
+const dependsOn8 = [
+    RenderbufferStorage
+];
+class FramebufferAttachment extends globalThis.HTMLElement {
+    get target() {
+        return readFramebufferTarget(this.getAttribute("target"));
+    }
+    get attachment() {
+        return readFramebufferAttachment(this.getAttribute("attachment"));
+    }
+    get src() {
+        return this.getAttribute("src");
+    }
+}
+class FramebufferTexture2D extends FramebufferAttachment {
+    static tag = "framebuffer-texture-2d";
+    get texture() {
+        return readFramebufferTexTarget(this.getAttribute("texture"));
+    }
+    initialize(gl, textures) {
+        const textureName = this.src;
+        if (!textureName) {
+            console.warn("No texture 'src' attribute found in framebufferTexture2D");
+            return;
+        }
+        const texture = textures.content.get(textureName);
+        if (!texture || !texture.texture) {
+            console.warn(`Could not find the referenced texture at ${FramebufferTexture2D.tag}`);
+            return;
+        }
+        const textureId = texture.texture;
+        const attachmentPoint = gl[this.attachment];
+        const texTarget = gl[this.texture];
+        const fbTarget = gl[this.target];
+        texture.bindTexture();
+        gl.framebufferTexture2D(fbTarget, attachmentPoint, texTarget, textureId, 0);
+    }
+}
+class FramebufferTextureLayer extends FramebufferAttachment {
+    static tag = "framebuffer-texture-layer";
+    get level() {
+        return Number(this.getAttribute("level"));
+    }
+    get layer() {
+        return Number(this.getAttribute("layer"));
+    }
+    initialize(gl, textures) {
+        const textureName = this.src;
+        if (!textureName) {
+            console.warn(`No texture 'src' attribute found in ${FramebufferTextureLayer.tag}`);
+            return;
+        }
+        const texture = textures.content.get(textureName);
+        if (!texture || !texture.texture) {
+            console.warn(`Could not find the referenced texture at ${FramebufferTextureLayer.tag}`);
+            return;
+        }
+        const textureId = texture.texture;
+        const attachmentPoint = gl[this.attachment];
+        const fbTarget = gl[this.target];
+        gl.framebufferTextureLayer(fbTarget, attachmentPoint, textureId, this.level, this.layer);
+    }
+}
+class FramebufferRenderbuffer extends FramebufferAttachment {
+    static tag = "framebuffer-renderbuffer";
+    whenLoaded = Promise.all(dependsOn8.map((c)=>globalThis.customElements.whenDefined(c.tag)
+    ));
+    renderbuffer = null;
+    async initialize(gl) {
+        await this.whenLoaded;
+        this.renderbuffer = gl.createRenderbuffer();
+        if (!this.renderbuffer) {
+            console.warn(`Unable to create the render buffer in <${FramebufferRenderbuffer.tag}>`);
+        }
+        gl.bindRenderbuffer(gl.RENDERBUFFER, this.renderbuffer);
+        for (const child of Array.from(this.children)){
+            if (child instanceof RenderbufferStorage) {
+                child.initialize(gl);
+            }
+        }
+        if (this.children.length === 0) {
+            console.warn(`No <renderbuffer-storage> set in the ${FramebufferRenderbuffer.tag}`);
+        }
+        const attachmentPoint = gl[this.attachment];
+        const fbTarget = gl[this.target];
+        gl.framebufferRenderbuffer(fbTarget, attachmentPoint, gl.RENDERBUFFER, this.renderbuffer);
+    }
+}
+function readFramebufferTexTarget(target) {
+    switch(target){
+        case "TEXTURE_CUBE_MAP_POSITIVE_X":
+        case "TEXTURE_CUBE_MAP_NEGATIVE_X":
+        case "TEXTURE_CUBE_MAP_POSITIVE_Y":
+        case "TEXTURE_CUBE_MAP_NEGATIVE_Y":
+        case "TEXTURE_CUBE_MAP_POSITIVE_Z":
+        case "TEXTURE_CUBE_MAP_NEGATIVE_Z":
+            return target;
+        default:
+            return "TEXTURE_2D";
+    }
+}
+function readFramebufferAttachment(target) {
+    switch(target){
+        case "DEPTH_ATTACHMENT":
+        case "DEPTH_STENCIL_ATTACHMENT":
+        case "STENCIL_ATTACHMENT":
+        case "COLOR_ATTACHMENT1":
+        case "COLOR_ATTACHMENT2":
+        case "COLOR_ATTACHMENT3":
+        case "COLOR_ATTACHMENT4":
+        case "COLOR_ATTACHMENT5":
+        case "COLOR_ATTACHMENT6":
+        case "COLOR_ATTACHMENT7":
+        case "COLOR_ATTACHMENT8":
+        case "COLOR_ATTACHMENT9":
+        case "COLOR_ATTACHMENT10":
+        case "COLOR_ATTACHMENT11":
+        case "COLOR_ATTACHMENT12":
+        case "COLOR_ATTACHMENT13":
+        case "COLOR_ATTACHMENT14":
+        case "COLOR_ATTACHMENT15":
+            return target;
+        default:
+            return "COLOR_ATTACHMENT0";
+    }
+}
+function readFramebufferTarget(target) {
+    switch(target){
+        case "FRAMEBUFFER":
+        case "DRAW_FRAMEBUFFER":
+        case "READ_FRAMEBUFFER":
+            return target;
+        default:
+            return "FRAMEBUFFER";
+    }
+}
+[
+    FramebufferTexture2D,
+    FramebufferTextureLayer,
+    FramebufferRenderbuffer,
+    ...dependsOn8, 
+].map((component)=>{
+    if (!globalThis.customElements.get(component.tag)) {
+        globalThis.customElements.define(component.tag, component);
+    }
+});
+let error = undefined;
+function glError(gl) {
+    if (!gl) return;
+    error = gl.getError();
+    if (error !== gl.NO_ERROR) {
+        console.log(glEnumToString(gl, error));
+    }
+}
+function glEnumToString(gl, v) {
+    for(const k in gl){
+        if (gl[k] === v) {
+            return k;
+        }
+    }
+    return `0x${v.toString(16)}`;
+}
+class CreateFramebuffer extends globalThis.HTMLElement {
+    static tag = "{{user defined}}";
+    framebuffer = null;
+    bindFramebuffer = ()=>{
+        nop();
+        return -1;
+    };
+    get target() {
+        switch(this.getAttribute("target")){
+            case "DRAW_FRAMEBUFFER":
+                return "DRAW_FRAMEBUFFER";
+            case "READ_FRAMEBUFFER":
+                return "READ_FRAMEBUFFER";
+            default:
+                return "FRAMEBUFFER";
+        }
+    }
+    async initialize(gl, textures) {
+        this.framebuffer = gl.createFramebuffer();
+        if (!this.framebuffer) {
+            console.error(`<${this.tagName.toLocaleLowerCase()}>: Unable to create framebuffer`);
+            return;
+        }
+        this.gl = gl;
+        const target = gl[this.target];
+        this.bindFramebuffer = ()=>{
+            gl.bindFramebuffer(target, this.framebuffer);
+            return target;
+        };
+        this.bindFramebuffer();
+        for (const child of Array.from(this.children)){
+            if (child instanceof FramebufferTexture2D || child instanceof FramebufferTextureLayer) {
+                child.initialize(gl, textures);
+            }
+            if (child instanceof FramebufferRenderbuffer) {
+                await child.initialize(gl);
+            }
+        }
+        if (gl.checkFramebufferStatus(target) !== gl.FRAMEBUFFER_COMPLETE) {
+            const status = gl.checkFramebufferStatus(target);
+            console.warn(`Framebuffer <${this.nodeName}> attachments don't work together: ${glEnumToString(gl, status)}`);
+            glError(gl);
+        }
+        gl.bindFramebuffer(target, null);
+    }
+}
+const dependsOn9 = [
+    FramebufferRenderbuffer,
+    FramebufferTexture2D,
+    FramebufferTextureLayer, 
+];
+class WebGLFramebuffers extends ShaderCanvasContainer {
+    static tag = "webgl-framebuffers";
+    whenLoaded = Promise.all(dependsOn9.map((c)=>globalThis.customElements.whenDefined(c.tag)
+    ));
+    async initialize({ gl , textures  }) {
+        await this.whenLoaded;
+        this.createContentComponentsWith(CreateFramebuffer);
+        for (const framebuffer of this.content.values()){
+            await framebuffer.initialize(gl, textures);
+        }
+    }
+}
+[
+    WebGLFramebuffers,
+    ...dependsOn9
 ].map((component)=>{
     if (!globalThis.customElements.get(component.tag)) {
         globalThis.customElements.define(component.tag, component);
@@ -2043,13 +2622,23 @@ class VertexAttribPointer extends globalThis.HTMLElement {
         const stride = this.stride;
         const offset = this.offset;
         const divisor = this.divisor;
-        this.vertexAttribPointer = ()=>{
-            gl.enableVertexAttribArray(location);
-            gl.vertexAttribPointer(location, size, type, normalized, stride, offset);
-            if (divisor > 0) {
-                gl.vertexAttribDivisor(location, divisor);
-            }
-        };
+        if (this.type.includes("FLOAT")) {
+            this.vertexAttribPointer = ()=>{
+                gl.enableVertexAttribArray(location);
+                gl.vertexAttribPointer(location, size, type, normalized, stride, offset);
+                if (divisor > 0) {
+                    gl.vertexAttribDivisor(location, divisor);
+                }
+            };
+        } else {
+            this.vertexAttribPointer = ()=>{
+                gl.enableVertexAttribArray(location);
+                gl.vertexAttribIPointer(location, size, type, stride, offset);
+                if (divisor > 0) {
+                    gl.vertexAttribDivisor(location, divisor);
+                }
+            };
+        }
         this.vertexAttribPointer();
     }
     get variable() {
@@ -2129,7 +2718,7 @@ class VertexAttribPointer extends globalThis.HTMLElement {
         }
     }
 }
-const dependsOn7 = [
+const dependsOn10 = [
     VertexAttribPointer,
     WebGLBuffers
 ];
@@ -2142,7 +2731,7 @@ class BindBuffer extends globalThis.HTMLElement {
         }
         return result || "";
     }
-    whenLoaded = Promise.all(dependsOn7.map((c)=>globalThis.customElements.whenDefined(c.tag)
+    whenLoaded = Promise.all(dependsOn10.map((c)=>globalThis.customElements.whenDefined(c.tag)
     ));
     vars = [];
     target = 0;
@@ -2171,13 +2760,13 @@ class BindBuffer extends globalThis.HTMLElement {
 }
 [
     BindBuffer,
-    ...dependsOn7
+    ...dependsOn10
 ].map((component)=>{
     if (!globalThis.customElements.get(component.tag)) {
         globalThis.customElements.define(component.tag, component);
     }
 });
-const dependsOn8 = [
+const dependsOn11 = [
     VertexAttribPointer,
     BindBuffer,
     WebGLBuffers
@@ -2189,7 +2778,7 @@ class CreateVertexArray extends globalThis.HTMLElement {
     vars = [];
     location0Attribute = null;
     location0Count = 0;
-    whenLoaded = Promise.all(dependsOn8.map((c)=>globalThis.customElements.whenDefined(c.tag)
+    whenLoaded = Promise.all(dependsOn11.map((c)=>globalThis.customElements.whenDefined(c.tag)
     ));
     bindVAO = nop;
     async initialize(gl, buffers, locations) {
@@ -2220,20 +2809,20 @@ class CreateVertexArray extends globalThis.HTMLElement {
 }
 [
     WebGLBuffers,
-    ...dependsOn8
+    ...dependsOn11
 ].map((component)=>{
     if (!globalThis.customElements.get(component.tag)) {
         globalThis.customElements.define(component.tag, component);
     }
 });
-const dependsOn9 = [
+const dependsOn12 = [
     VertexAttribPointer,
     BindBuffer,
     WebGLBuffers
 ];
 class WebGLVertexArrayObjects extends ShaderCanvasContainer {
     static tag = "webgl-vertex-array-objects";
-    whenLoaded = Promise.all(dependsOn9.map((c)=>globalThis.customElements.whenDefined(c.tag)
+    whenLoaded = Promise.all(dependsOn12.map((c)=>globalThis.customElements.whenDefined(c.tag)
     ));
     bindFunctionFor(vaoName) {
         const vao = this.content.get(vaoName);
@@ -2262,7 +2851,7 @@ class WebGLVertexArrayObjects extends ShaderCanvasContainer {
 }
 [
     WebGLVertexArrayObjects,
-    ...dependsOn9
+    ...dependsOn12
 ].map((component)=>{
     if (!globalThis.customElements.get(component.tag)) {
         globalThis.customElements.define(component.tag, component);
@@ -2273,8 +2862,14 @@ class TexImage2D extends globalThis.HTMLElement {
     get width() {
         return Number(this.getAttribute("width"));
     }
+    set width(w) {
+        this.setAttribute("width", String(w));
+    }
     get height() {
         return Number(this.getAttribute("height"));
+    }
+    set height(h) {
+        this.setAttribute("height", String(h));
     }
     get level() {
         return Number(this.getAttribute("level"));
@@ -2294,6 +2889,7 @@ class TexImage2D extends globalThis.HTMLElement {
     get src() {
         return this.getAttribute("src");
     }
+    data = null;
     async readDataFromSrc(readers, srcOverride) {
         const src = srcOverride || this.src;
         if (!src) {
@@ -2322,13 +2918,16 @@ class TexImage2D extends globalThis.HTMLElement {
                 this.data = await this.readDataFromSrc([
                     readImageDataFromQuery
                 ], srcOverride ? srcOverride : src || srcOverride);
-                gl.bindTexture(gl[target], texture);
-                if (width > 0 && height > 0) {
-                    gl.texImage2D(gl[target], level, gl[internalFormat], width, height, 0, gl[format], gl[type], this.data);
-                } else {
-                    gl.texImage2D(gl[target], level, gl[internalFormat], gl[format], gl[type], this.data);
-                }
-                gl.bindTexture(gl[target], null);
+            }
+            gl.bindTexture(gl[target], texture);
+            if (width > 0 && height > 0) {
+                gl.texImage2D(gl[target], level, gl[internalFormat], width, height, 0, gl[format], gl[type], this.data);
+            } else if (this.data === null) {
+                this.width = gl.drawingBufferWidth;
+                this.height = gl.drawingBufferHeight;
+                gl.texImage2D(gl[target], level, gl[internalFormat], gl.drawingBufferWidth, gl.drawingBufferHeight, 0, gl[format], gl[type], null);
+            } else {
+                gl.texImage2D(gl[target], level, gl[internalFormat], gl[format], gl[type], this.data);
             }
         };
     }
@@ -2419,12 +3018,14 @@ function readTextureType(value) {
             return "UNSIGNED_BYTE";
     }
 }
-const dependsOn10 = [
-    TexImage2D
+const dependsOn13 = [
+    TexImage2D,
+    TexParameterF,
+    TexParameterI
 ];
 class CreateTexture extends globalThis.HTMLElement {
     static tag = "{{user defined}}";
-    whenLoaded = Promise.all(dependsOn10.map((c)=>globalThis.customElements.whenDefined(c.tag)
+    whenLoaded = Promise.all(dependsOn13.map((c)=>globalThis.customElements.whenDefined(c.tag)
     ));
     texture = null;
     bindTexture = nop;
@@ -2435,31 +3036,39 @@ class CreateTexture extends globalThis.HTMLElement {
             console.error(`<${this.tagName.toLocaleLowerCase()}>: Unable to create texture`);
             return;
         }
-        for (const child of [
-            ...this.children
-        ]){
+        gl.bindTexture(gl.TEXTURE_2D, this.texture);
+        for (const child of Array.from(this.children)){
             if (child instanceof TexImage2D) {
                 child.initialize(gl);
                 await child.load(this.texture);
                 this.bindTexture = ()=>gl.bindTexture(gl.TEXTURE_2D, this.texture)
                 ;
             }
+            if (child instanceof TexParameterI) {
+                child.initialize(gl);
+                child.texParameteri();
+            }
+            if (child instanceof TexParameterF) {
+                child.initialize(gl);
+                child.texParameterf();
+            }
         }
+        gl.bindTexture(gl.TEXTURE_2D, null);
     }
 }
 [
-    ...dependsOn10
+    ...dependsOn13
 ].map((component)=>{
     if (!globalThis.customElements.get(component.tag)) {
         globalThis.customElements.define(component.tag, component);
     }
 });
-const dependsOn11 = [
+const dependsOn14 = [
     TexImage2D
 ];
 class WebGLTextures extends ShaderCanvasContainer {
     static tag = "webgl-textures";
-    whenLoaded = Promise.all(dependsOn11.map((c)=>globalThis.customElements.whenDefined(c.tag)
+    whenLoaded = Promise.all(dependsOn14.map((c)=>globalThis.customElements.whenDefined(c.tag)
     ));
     async initialize({ gl  }) {
         await this.whenLoaded;
@@ -2476,13 +3085,13 @@ class WebGLTextures extends ShaderCanvasContainer {
 }
 [
     WebGLTextures,
-    ...dependsOn11
+    ...dependsOn14
 ].map((component)=>{
     if (!globalThis.customElements.get(component.tag)) {
         globalThis.customElements.define(component.tag, component);
     }
 });
-const dependsOn12 = [
+const dependsOn15 = [
     WebGLPrograms,
     WebGLBuffers,
     DrawCalls,
@@ -2490,7 +3099,7 @@ const dependsOn12 = [
 ];
 class WebGLCanvas extends globalThis.HTMLElement {
     static tag = "webgl-canvas";
-    whenLoaded = Promise.all(dependsOn12.map((c)=>globalThis.customElements.whenDefined(c.tag)
+    whenLoaded = Promise.all(dependsOn15.map((c)=>globalThis.customElements.whenDefined(c.tag)
     ));
     root = this.attachShadow({
         mode: "open"
@@ -2521,6 +3130,7 @@ class WebGLCanvas extends globalThis.HTMLElement {
         await ctx.programs.initialize(ctx);
         await ctx.buffers.initialize(ctx);
         await ctx.textures.initialize(ctx);
+        await ctx.framebuffers.initialize(ctx);
         await ctx.vaos.initialize(ctx);
         const bufferUpdaters = bufferInitializers.map((f)=>{
             if (this.gl) {
@@ -2575,12 +3185,19 @@ class WebGLCanvas extends globalThis.HTMLElement {
             textures = globalThis.document.createElement(WebGLTextures.tag);
             this.appendChild(textures);
         }
-        if (textures instanceof WebGLTextures && programs instanceof WebGLPrograms && vaos instanceof WebGLVertexArrayObjects && buffers instanceof WebGLBuffers) {
+        let framebuffers = this.querySelector(WebGLFramebuffers.tag);
+        if (!framebuffers) {
+            console.warn(`<webgl-canvas>: Unable to find <${WebGLFramebuffers.tag}>`);
+            framebuffers = globalThis.document.createElement(WebGLFramebuffers.tag);
+            this.appendChild(framebuffers);
+        }
+        if (textures instanceof WebGLTextures && programs instanceof WebGLPrograms && vaos instanceof WebGLVertexArrayObjects && buffers instanceof WebGLBuffers && framebuffers instanceof WebGLFramebuffers) {
             const runtime = this.createRuntime();
             const context = {
                 gl,
                 programs,
                 buffers,
+                framebuffers,
                 vaos,
                 textures,
                 runtime,
@@ -2592,6 +3209,21 @@ class WebGLCanvas extends globalThis.HTMLElement {
         }
         console.warn("<webgl-canvas>: Unable to create context function, \
     are the containers instances available and their tags registered?");
+        if (!(textures instanceof WebGLTextures)) {
+            console.warn(`<webgl-textures> is malformed`, textures);
+        }
+        if (!(programs instanceof WebGLPrograms)) {
+            console.warn(`<webgl-programs> is malformed`, programs);
+        }
+        if (!(vaos instanceof WebGLVertexArrayObjects)) {
+            console.warn(`<webgl-vertex-array-objects> is malformed`, vaos);
+        }
+        if (!(framebuffers instanceof WebGLFramebuffers)) {
+            console.warn(`<webgl-framebuffers> is malformed`, framebuffers);
+        }
+        if (!(buffers instanceof WebGLBuffers)) {
+            console.warn(`<webgl-buffers> is malformed`, buffers);
+        }
         return ()=>null
         ;
     }
@@ -2622,7 +3254,9 @@ class WebGLCanvas extends globalThis.HTMLElement {
         };
     }
     initializeGL() {
-        const ctx = this.canvas.getContext("webgl2");
+        const ctx = this.canvas.getContext("webgl2", {
+            desynchronized: true
+        });
         if (!ctx || typeof ctx.getContextAttributes !== "function") {
             throw new Error("No WebGL 2.0 support");
         }
@@ -2645,7 +3279,7 @@ class WebGLCanvas extends globalThis.HTMLElement {
 }
 [
     WebGLCanvas,
-    ...dependsOn12
+    ...dependsOn15
 ].map((component)=>{
     if (!globalThis.customElements.get(component.tag)) {
         globalThis.customElements.define(component.tag, component);
@@ -2669,7 +3303,7 @@ class ImportModule extends globalThis.HTMLElement {
         }
     }
 }
-const dependsOn13 = [
+const dependsOn16 = [
     NewModules,
     WebGLCanvas,
     DrawCalls,
@@ -2709,7 +3343,7 @@ class ShaderCanvas1 extends CanHaveModules {
     static getModuleState(moduleName) {
         return this.modulesFunctions.get(moduleName)?.getState?.();
     }
-    whenLoaded = Promise.all(dependsOn13.map((c)=>globalThis.customElements.whenDefined(c.tag)
+    whenLoaded = Promise.all(dependsOn16.map((c)=>globalThis.customElements.whenDefined(c.tag)
     ));
     get width() {
         return Number(this.getAttribute("width") || `${window.innerWidth}`);
@@ -2731,7 +3365,7 @@ class ShaderCanvas1 extends CanHaveModules {
         this.root.append(style, slot);
         const modulesToLoad = globalThis.document.querySelectorAll("import-module");
         const loadedModules = [];
-        for (const module of modulesToLoad){
+        for (const module of Array.from(modulesToLoad)){
             if (module && module instanceof ImportModule) {
                 const content = await module.initialize();
                 if (content) {
@@ -2756,7 +3390,7 @@ class ShaderCanvas1 extends CanHaveModules {
         }
         if (this.webglCanvas) {
             this.applyPayloads({
-                payloadChildFilter: (child)=>child.nodeName === "WEBGL-PROGRAMS" || child.nodeName === "WEBGL-VERTEX-ARRAY-OBJECTS" || child.nodeName === "WEBGL-TEXTURES" || child.nodeName === "WEBGL-BUFFERS" || child.nodeName === "DRAW-CALLS"
+                payloadChildFilter: (child)=>child.nodeName === "WEBGL-PROGRAMS" || child.nodeName === "WEBGL-VERTEX-ARRAY-OBJECTS" || child.nodeName === "WEBGL-TEXTURES" || child.nodeName === "WEBGL-BUFFERS" || child.nodeName === "WEBGL-FRAMEBUFFERS" || child.nodeName === "DRAW-CALLS"
                 ,
                 payloads,
                 removeModule: false,
@@ -2820,7 +3454,7 @@ class ShaderCanvas1 extends CanHaveModules {
 }
 [
     ShaderCanvas1,
-    ...dependsOn13
+    ...dependsOn16
 ].map((component)=>{
     if (!globalThis.customElements.get(component.tag)) {
         globalThis.customElements.define(component.tag, component);

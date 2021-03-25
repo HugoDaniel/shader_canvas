@@ -131,6 +131,9 @@ export class TexImage2D extends globalThis.HTMLElement {
   get width(): number {
     return Number(this.getAttribute("width"));
   }
+  set width(w: number) {
+    this.setAttribute("width", String(w));
+  }
 
   /**
    * The height of the texture.
@@ -139,6 +142,9 @@ export class TexImage2D extends globalThis.HTMLElement {
    */
   get height(): number {
     return Number(this.getAttribute("height"));
+  }
+  set height(h: number) {
+    this.setAttribute("height", String(h));
   }
 
   /**
@@ -367,13 +373,14 @@ export class TexImage2D extends globalThis.HTMLElement {
         );
       } else if (this.data === null) {
         // No data, assume screen dimensions
-        console.log("NO DIMENSIONS");
+        this.width = gl.drawingBufferWidth;
+        this.height = gl.drawingBufferHeight;
         gl.texImage2D(
           gl[target],
           level,
           gl[internalFormat],
           gl.drawingBufferWidth,
-          gl.drawingBufferWidth,
+          gl.drawingBufferHeight,
           0,
           gl[format],
           gl[type],

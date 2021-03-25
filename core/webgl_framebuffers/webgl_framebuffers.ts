@@ -107,7 +107,6 @@ export class WebGLFramebuffers
     // It runs through all of the child tags and registers them as a new unique
     // Web Component with the CreateProgram class.
     this.createContentComponentsWith(CreateFramebuffer);
-
     // Initialize all CreateFramebuffer children.
     for (const framebuffer of this.content.values()) {
       await framebuffer.initialize(gl, textures);

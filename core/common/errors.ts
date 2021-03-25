@@ -6,7 +6,10 @@ export function glError(gl: WebGL2RenderingContext | undefined) {
     console.log(glEnumToString(gl, error));
   }
 }
-function glEnumToString(gl: WebGL2RenderingContext | undefined, v: number) {
+export function glEnumToString(
+  gl: WebGL2RenderingContext | undefined,
+  v: number,
+) {
   for (const k in gl) {
     if (((gl as unknown) as any)[k] === v) {
       return k;

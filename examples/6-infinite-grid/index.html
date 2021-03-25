@@ -36,123 +36,149 @@ Licensed under the EUPL -->
                 <script type=module>
                     import { ShaderCanvas } from "../../build/shader_canvas.js";
                     import { transformPoint, identityMatrix, translate, scale, multiply } from "./matrix.js"
+                    const dpr = window.devicePixelRatio;
+                    // Total rotation, only used in safari:
+                    let rotation = 0;
+                    let gestureStartRotation = 0;
+                    let gestureStartZoom = 0;
+                    // Amount of zoom, 1 is always the maximum zoom-out
+                    // amount
+                    let zoom = 3;
+                    // Direction of zooming:
+                    let zoomSign = 1;
+                    let zoomDelta = 0;
+                    let oldZoom = zoom - 0.0001;
+                    // Amount of panning read by the event handlers:
+                    let panX = 0;
+                    let panY = 0;
+                    // Previous amount of panning read by the event handlers
+                    // this is useful to calc. the deltas
+                    let oldPanX = panX - 0.0001;
+                    let oldPanY = panY - 0.0001;
+                    // Gesture start position:
+                    let startX;
+                    let startY;
+                    // Current pointer position, useful to zoom in/out at
+                    // this location
+                    let mouseX = -1;
+                    let mouseY = -1;
+                    // Zoom transformation matrix
+                    let zoomT = identityMatrix();
+                    // Adjust to the current zoom set:
+                    scale(zoomT, [zoom, zoom, zoom], zoomT);
 
-                    const module = ShaderCanvas.webglModule(() => {
-                        const dpr = window.devicePixelRatio;
-                        let rotation = 0;
-                        let gestureStartRotation = 0;
-                        let gestureStartZoom = 0;
-                        let zoom = 1;
-                        let zoomSign = 1;
-                        let zoomDelta = 0;
-                        let oldZoom = 0.99;
-                        let panX = 0;
-                        let panY = 0;
-                        let oldPanX = 0;
-                        let oldPanY = 0;
-                        let startX;
-                        let startY;
-                        let mouseX = -1;
-                        let mouseY = -1;
-                        const wheelHandler = (e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
+                    function wheelHandler(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
 
-                            if (e.ctrlKey) {
-                                zoom = Math.max(0.1, zoom - e.deltaY * 0.1);
-                                zoomSign = Math.sign(e.deltaY)
-                            } else {
-                                panX -= e.deltaX * 2;
-                                panY -= e.deltaY * 2;
-                            }
-                        };
-                        const mouseHandler = (e) => {
-                            mouseX = e.clientX;
-                            mouseY = e.clientY;
-                        };
-                        const gestureStartHandler = (e) => {
-                            e.preventDefault();
-                            startX = e.pageX - panX;
-                            startY = e.pageY - panY;
-                            gestureStartRotation = rotation;
-                            gestureStartZoom = zoom;
-                        };
-                        const gestureChangeHandler = (e) => {
-                            e.preventDefault();
-                            rotation = gestureStartRotation + e.rotation;
-                            zoom = gestureStartZoom * e.scale;
-                            zoomSign = Math.sign(oldZoom - zoom)
-                            panX = e.pageX - startX;
-                            panY = e.pageY - startY;
-                        };
-                        const gestureEndHandler = (e) => e.preventDefault();
-                        window.addEventListener("mousemove", mouseHandler);
-                        window.addEventListener("wheel", wheelHandler,  { passive: false, capture: true });
-                        window.addEventListener("gesturestart", gestureStartHandler);
-                        window.addEventListener("gesturechange", gestureChangeHandler);
-                        window.addEventListener("gestureend", gestureEndHandler);
-                        let zoomT = identityMatrix();
-                        let totalPanZoom = [0, 0, 1];
-                        let isUpdateNeeded = true;
-                        let firstRender = true;
-                        const state = {
-                            matrix: zoomT,
-                            originAt: totalPanZoom,
-                            _isUpdating: false,
-                            _timeoutId: null,
-                            get isUpdating() {
-                                return this._isUpdating;
-                            },
-                            set isUpdating(value) {
-                                if (value !== this._isUpdating) {
-                                    if (value) {
-                                        this._isUpdating = value;
-                                        this.onActionStart();
-                                    } else {
-                                        this._isUpdating = value;
-                                        // only call end action after a timeout
-                                        // is reached
-                                        if (this._timeoutId === null) {
-                                            this._timeoutId = setTimeout(() => {
-                                                this._timeoutId = null;
-                                                if (!this._isUpdating) {
-                                                    this.onActionEnd()
-                                                }
-                                            }, 100)
-                                        }
+                        if (e.ctrlKey) {
+                            zoom = Math.max(0.1, zoom - e.deltaY * 0.1);
+                            zoomSign = Math.sign(e.deltaY)
+                        } else {
+                            panX -= e.deltaX * zoom * 2;
+                            panY -= e.deltaY * zoom * 2;
+                        }
+                    };
+                    function mouseHandler(e) {
+                        mouseX = e.clientX;
+                        mouseY = e.clientY;
+                    };
+                    function gestureStartHandler(e) {
+                        e.preventDefault();
+                        startX = e.pageX - panX;
+                        startY = e.pageY - panY;
+                        gestureStartRotation = rotation;
+                        gestureStartZoom = zoom;
+                    };
+                    function gestureChangeHandler(e) {
+                        e.preventDefault();
+                        rotation = gestureStartRotation + e.rotation;
+                        zoom = gestureStartZoom * e.scale;
+                        zoomSign = Math.sign(oldZoom - zoom)
+                        panX = e.pageX - startX;
+                        panY = e.pageY - startY;
+                    };
+                    function gestureEndHandler(e) {
+                        e.preventDefault();
+                    }
+                    addEventListener("mousemove", mouseHandler);
+                    addEventListener("wheel", wheelHandler,  { passive: false, capture: false });
+                    addEventListener("gesturestart", gestureStartHandler);
+                    addEventListener("gesturechange", gestureChangeHandler);
+                    addEventListener("gestureend", gestureEndHandler);
+
+                    class PanZoomState {
+                        matrix = zoomT;
+                        originAt = [0, 0, zoom];
+                        _isUpdating = false;
+                        _timeoutId = null;
+                        get isUpdating() {
+                            return this._isUpdating;
+                        }
+                        set isUpdating(value) {
+                            if (value !== this._isUpdating) {
+                                if (value) {
+                                    this._isUpdating = value;
+                                    this.onActionStart();
+                                } else {
+                                    this._isUpdating = value;
+                                    // only call end action after a timeout
+                                    // is reached
+                                    if (this._timeoutId === null) {
+                                        this._timeoutId = setTimeout(() => {
+                                            this._timeoutId = null;
+                                            if (!this._isUpdating) {
+                                                this.onActionEnd()
+                                            }
+                                        }, 100)
                                     }
                                 }
-                            },
-                            _actionStart: [],
-                            get onActionStart() {
-                                if (this._actionStart.length === 0) {
-                                    return (() => {});
-                                }
-                                return (() => this._actionStart.forEach(f => f()))
-                            },
-                            _actionEnd: [],
-                            set onActionStart(arg) {
-                                if (typeof arg !== "function") {
-                                    console.warn('A function was not passed to "onActionStart"');
-                                    return;
-                                }
-                                this._actionStart.push(arg);
-                            },
-                            get onActionEnd() {
-                                if (this._actionEnd.length === 0) {
-                                    return (() => {})
-                                }
-                                return (() => this._actionEnd.forEach(f => f()))
-                            },
-                            set onActionEnd(arg) {
-                                if (typeof arg !== "function") {
-                                    console.warn('A function was not passed to "onActionEnd"');
-                                    return;
-                                }
-                                this._actionEnd.push(arg);
                             }
-                        };
-                        // console.log('STATE', state)
+                        }
+                        _actionStart = [];
+                        get onActionStart() {
+                            if (this._actionStart.length === 0) {
+                                return (() => {});
+                            }
+                            return (() => this._actionStart.forEach(f => f()))
+                        }
+                        _actionEnd = [];
+                        set onActionStart(arg) {
+                            if (typeof arg !== "function") {
+                                console.warn('A function was not passed to "onActionStart"');
+                                return;
+                            }
+                            this._actionStart.push(arg);
+                        }
+                        get onActionEnd() {
+                            if (this._actionEnd.length === 0) {
+                                return (() => {})
+                            }
+                            return (() => this._actionEnd.forEach(f => f()))
+                        }
+                        set onActionEnd(arg) {
+                            if (typeof arg !== "function") {
+                                console.warn('A function was not passed to "onActionEnd"');
+                                return;
+                            }
+                            this._actionEnd.push(arg);
+                        }
+                    };
+
+                    const module = ShaderCanvas.webglModule(() => {
+                        const state = new PanZoomState();
+                        // The totalPanZoom is the final array, the result
+                        // of the pan/zoom operation is returned at this
+                        // variable: [pan x, pan y, zoom]
+                        let totalPanZoom = [0, 0, zoom];
+                        // When this flag is true, the transformation matrices
+                        // are calculated:
+                        let isUpdateNeeded = true;
+                        // Transformation matrices are only calculated if This flag is used to trigger a full transformation
+                        // calculation on the first frame:
+                        let firstRender = true;
+                        
+                        // The object returned is of the type 
                         return ({
                             getState() {
                                 state.matrix = zoomT;
@@ -189,10 +215,10 @@ Licensed under the EUPL -->
                                 }
                                 if (isUpdateNeeded) {
                                     totalPanZoom = [0, 0, 0];
-                                    const identity = identityMatrix();
+                                    const finalMatrix = identityMatrix();
                                     transformPoint(zoomT, totalPanZoom, totalPanZoom);
-                                    multiply(identity, zoomT, identity);
-                                    totalPanZoom[2] = identity[0]; // real zoom
+                                    multiply(finalMatrix, zoomT, finalMatrix);
+                                    totalPanZoom[2] = finalMatrix[0]; // real zoom
                                     isUpdateNeeded = false;
                                     updated = true;
                                 }
@@ -212,42 +238,6 @@ Licensed under the EUPL -->
                     module.useWith("pan-zoom-2d");
                 </script>
             </pan-zoom-2d>
-            <tri-grid>
-                <webgl-program-part>
-                    <vertex-shader>
-                        <code-before>
-                            vec4 triangleGrid(void);
-                        </code-before>
-                        <code-after>
-                            vec2 rotate2d(vec2 v, float a) {
-                                float s = sin(a);
-                                float c = cos(a);
-                                mat2 m = mat2(c, -s, s, c);
-                                return m * v;
-                            }
-                            /*
-                            [ 0, 0, 0, 1,
-                            1, 0, 0, 1,
-                            0.5, 0.8660254037844386, 0, 1
-                            ]
-                            [ 0, 1, 2, 0 ]
-                            */                    
-                            vec4 triangleGrid(void) {
-                                float z = 0.1;
-                                vec4 p = position;
-                                // p.x = floor(mod(instanceScene.y, 2.0)) > 0.0 ? p.x : p.x*1.5;
-                                // p.x += gl_VertexID == 1 ? floor(mod(instanceScene.x, 2.0)) * (1.0) : 0.0;
-                                p.y = gl_VertexID == 2 ? (floor(mod(instanceScene.x, 2.0)) > 0.0 ? (p.y) : (-p.y)) : p.y;
-                                vec4 vertex = vec4(size, size, 1.0, 1.0) * p + vec4(instanceScene.xy * vec2(size * 0.5, 0.8660254037844386*size), 0.0, 0.0);
-
-                                vec4 transformedVertex = panZoomMatrix * vertex;
-                                vec4 projected = projection * transformedVertex;
-                                return projected; 
-                            }
-                        </code-before>
-                    </vertex-shader>
-                </webgl-program-part>
-            </tri-grid>
         </new-modules>
         <webgl-canvas>
             <webgl-vertex-array-objects>
@@ -257,12 +247,27 @@ Licensed under the EUPL -->
                     </bind-buffer>
                     <bind-buffer src="quad-indices"></bind-buffer>
                     <bind-buffer src="quad-instance-scene">
-                        <vertex-attrib-pointer variable="instanceScene" size="4" divisor="1">
+                        <vertex-attrib-pointer variable="instanceScene" size="3" divisor="1" type="SHORT">
                         </vertex-attrib-pointer>
                     </bind-buffer>
                 </quad-vao>
+                <screen-vao>
+                    <bind-buffer src="screen-vertices">
+                        <vertex-attrib-pointer variable="position" size="3"></vertex-attrib-pointer>
+                    </bind-buffer>
+                    <bind-buffer src="screen-texture-coords">
+                        <vertex-attrib-pointer variable="textureCoords" size="2">
+                        </vertex-attrib-pointer>
+                    </bind-buffer>
+                </screen-vao>
             </webgl-vertex-array-objects>
             <webgl-buffers>
+                <screen-vertices>
+                    <buffer-data src="#screen"></buffer-data>
+                </screen-vertices>
+                <screen-texture-coords>
+                    <buffer-data src="#screenTextureCoords"></buffer-data>
+                </screen-texture-coords>
                 <quad-vertices>
                     <buffer-data src="#points"></buffer-data>
                 </quad-vertices>
@@ -270,54 +275,51 @@ Licensed under the EUPL -->
                     <buffer-data src="#elements" target="ELEMENT_ARRAY_BUFFER"></buffer-data>
                 </quad-indices>
                 <quad-instance-scene></quad-instance-scene>
+                <!-- Fed by readPixels() -->
                 <position-picker-pack>
-                    <!-- Fed by readPixels() -->
                     <buffer-data target="PIXEL_PACK_BUFFER" usage="STREAM_READ"></buffer-data>
                 </position-picker-pack>
             </webgl-buffers>
             <webgl-textures>
-                <picker-texture-target>
+                <color-texture-target>
                     <tex-image-2d></tex-image-2d>
                     <tex-parameter-i pname="TEXTURE_MIN_FILTER" param="NEAREST"></tex-parameter-i>
                     <tex-parameter-i pname="TEXTURE_MAG_FILTER" param="NEAREST"></tex-parameter-i>
-                </picker-texture-target>
+                </color-texture-target>
             </webgl-textures>
             <webgl-framebuffers>
-                <position-picker>
-                    <!--
-                    <framebuffer-texture-2d attachment="COLOR_ATTACHMENT0" src="picker-texture-target">
+                <elements-grid>
+                    <framebuffer-texture-2d attachment="COLOR_ATTACHMENT0" src="color-texture-target">
                     </framebuffer-texture-2d>
-                    -->
-                    <framebuffer-renderbuffer attachment="COLOR_ATTACHMENT0">
+                    <framebuffer-renderbuffer attachment="COLOR_ATTACHMENT1">
                         <renderbuffer-storage format="RG32I"></renderbuffer-storage>
                     </framebuffer-renderbuffer>
-
                     <framebuffer-renderbuffer attachment="DEPTH_ATTACHMENT">
                         <renderbuffer-storage format="DEPTH_COMPONENT16"></renderbuffer-storage>
                     </framebuffer-renderbuffer>
-                </position-picker>
+                </elements-grid>
             </webgl-framebuffers>
             <webgl-programs>
                 <infinite-grid>
                     <pan-zoom-2d></pan-zoom-2d>
-                    <tri-grid></tri-grid>
 
                     <vertex-shader>
                         <code>
                             #version 300 es
     
                             in vec4 position;
-                            in vec4 instanceScene;
+                            in ivec3 instanceScene;
                             uniform mat4 projection; 
                             uniform float size;
     
-                            out float sceneColorId;
-                            out vec2 instancePos;
+                            flat out int sceneColorId;
+                            flat out ivec2 instancePos;
+                            
                             vec4 squareGrid() {
                                 vec4 vertex =
                                     vec4(size, size, 1.0, 1.0)
                                     * position
-                                    + vec4(instanceScene.xy * vec2(size),
+                                    + vec4(vec2(instanceScene.xy) * vec2(size),
                                     0.0, 0.0);
 
                                 vec4 transformedVertex = panZoomMatrix * vertex;
@@ -338,35 +340,38 @@ Licensed under the EUPL -->
 
                             precision highp float;
 
-                            uniform vec3 hover;
+                            uniform ivec3 hover;
                             uniform float isLines;
-                            out vec4 outColor;
-                            in vec2 instancePos;
-                            in float sceneColorId;
+                            flat in ivec2 instancePos;
+                            flat in int sceneColorId;
 
-                            vec4 getColorById(float cid) {
+                            layout(location=0) out vec4 outColor;
+                            layout(location=1) out ivec2 pos;
+
+                            vec4 getColorById(int cid) {
                                 vec4 color = vec4(0.0, 0.0, 0.0, 0.0);
-                                if (cid == 1.0) {
+                                if (cid == 1) {
                                     color = vec4(0.75, 0.25, 0.25, 1.0);
-                                } else if(cid == 2.0) {
+                                } else if(cid == 2) {
                                     color = vec4(0.35, 0.75, 0.25, 1.0);
-                                } else if(cid == 3.0) {
+                                } else if(cid == 3) {
                                     color = vec4(0.35, 0.25, 0.75, 1.0);
-                                } else if(cid == 4.0) {
+                                } else if(cid == 4) {
                                     color = vec4(0.75, 0.8, 0.25, 1.0);
-                                } else if(cid == 5.0) {
+                                } else if(cid == 5) {
                                     color = vec4(0.1, 0.2, 0.3, 1.0);
                                 }
                                 return color;
                             }
                             void main() {
-                                vec4 color = getColorById(sceneColorId);
+                                vec4 color = getColorById(int(sceneColorId));
                                 if (hover.xy == instancePos) {
-                                    outColor = getColorById(hover.z); // vec4(0.8, 0.7, 0.6, 1);
+                                    outColor = getColorById(hover.z);
                                 } else {
                                     outColor = isLines * vec4(0.2, 0.2, 0.1, 1.0)
                                     + (color - isLines * color);
                                 }
+                                pos = instancePos;
                             }
                         </code>
                     </fragment-shader>
@@ -374,6 +379,7 @@ Licensed under the EUPL -->
                         import { ShaderCanvas } from "../../build/shader_canvas.js";
                         import { ortho } from "./matrix.js"
                         import { VectorMap } from "./vector_map.js"
+
                         ////////////////////
                         // APP STATE MOCK //
                         ////////////////////
@@ -386,7 +392,7 @@ Licensed under the EUPL -->
                             0, 0, 0, 0
                         ]);
                         ////////////////////
-                        const drawElements = document.querySelectorAll("draw-vao");
+                        const drawElements = document.querySelectorAll("bind-framebuffer draw-vao");
                         const setInstanceCount = (instanceNumber) => {
                             for (const drawElem of drawElements) {
                                 drawElem.setAttribute("instanceCount", instanceNumber)
@@ -395,13 +401,13 @@ Licensed under the EUPL -->
                         const dpr = window.devicePixelRatio;
                         const w = window.innerWidth * dpr;
                         const h = window.innerHeight * dpr;
-                        const size = 16; // In pixels - minimum size possible when zoomed out completely
-                        const padding = 4; // Number of extra squares beyond the visible canvas
+                        const size = 12; // In pixels - minimum size possible when zoomed out completely
+                        const padding = 2; // Number of extra squares beyond the visible canvas
                         const horizontalSquares = Math.ceil((w / dpr) / size) + padding;
                         const verticalSquares = Math.ceil((h / dpr) / size) + padding;
                         const instances = horizontalSquares * verticalSquares;
-                        const dim = 4; // Matrix dimension
-                        const instanceScene = new Float32Array(instances * dim);
+                        const dim = 3;
+                        const instanceScene = new Int16Array(instances * dim);
                         const cols = Math.ceil(w / (size * dpr)) + padding;
                         const dprSize = size * dpr;
                         let needsSceneUpdate = false;
@@ -424,13 +430,15 @@ Licensed under the EUPL -->
                             if (!needsSceneUpdate && oldSceneDeltaX === sceneDeltaX && oldSceneDeltaY === sceneDeltaY && oldScaledSize == scaledSize) {
                                 return;
                             }
+                            // TODO: only update the colorIds, only update them
+                            // when a square leaves the viewport i.e. (0,0) changes
                             for (let i = 0; i < instances; i++) {
                                 const sceneX = Math.floor((i % cols) - sceneDeltaX);
                                 const sceneY = Math.floor(Math.abs(i / cols) - sceneDeltaY);
 
-                                instanceScene[dim * i + 0] = sceneX;
-                                instanceScene[dim * i + 1] = sceneY;
-                                instanceScene[dim * i + 2] = appState.getXY(sceneX, sceneY) || 0;
+                                instanceScene[3 * i + 0] = sceneX;
+                                instanceScene[3 * i + 1] = sceneY;
+                                instanceScene[3 * i + 2] = appState.getXY(sceneX, sceneY) || 0;
                             }
                             oldSceneDeltaX = sceneDeltaX;
                             oldSceneDeltaY = sceneDeltaY;
@@ -463,10 +471,12 @@ Licensed under the EUPL -->
                                 }
                             })
                         });
-
                         let hoverX = undefined;
                         let hoverY = undefined;
+                        const data = new Uint32Array(w * h * 4);
                         let colorId = Math.floor(Math.random() * 4) + 1;
+                        const pixels = document.querySelector("read-pixels");
+
                         const p = ShaderCanvas.createProgram((gl, { uniformLocations, ctx }) => {
                             let oldHoverX = hoverX;
                             let oldHoverY = hoverY;
@@ -474,9 +484,25 @@ Licensed under the EUPL -->
                             gl.uniformMatrix4fv(uniformLocations.get("projection"), false,
                                 ortho(0, gl.canvas.clientWidth, gl.canvas.clientHeight, 0, 0, 1));
                             gl.uniform1f(uniformLocations.get("size"), dprSize);
+                            const panZoomObj = ShaderCanvas.getModuleState("pan-zoom-2d");
+                            panZoomObj.onActionEnd = () => {
+                                pixels?.getPixels(data);
+                            }
+
+                            const view = new DataView(data.buffer)
+                            document.addEventListener("pointermove", (e) => {
+                                e.preventDefault();
+                                const mouseX = Math.floor(e.offsetX * dpr);
+                                const mouseY = h - Math.floor(e.offsetY * dpr);
+                                const arrayPos = mouseY * (w * 16) + (mouseX * 16);
+                                hoverX = view.getInt32(arrayPos, true);
+                                hoverY = view.getInt32(arrayPos + 4, true);
+                                // console.log('MOUSE', mouseX, mouseY, hoverX, hoverY)
+                            }, { passive: false });
+
                             return () => {
                                 if (hoverX !== oldHoverX || hoverY !== oldHoverY) {
-                                    gl.uniform3f(hoverLoc, hoverX, hoverY, colorId);
+                                    gl.uniform3i(hoverLoc, hoverX, hoverY, colorId);
                                     oldHoverX = hoverX;
                                     oldHoverY = hoverY;
                                 }
@@ -484,88 +510,31 @@ Licensed under the EUPL -->
                         });
 
                         p.useWith("infinite-grid")
+                        document.addEventListener("pointerdown", (e) => {
+                            needsSceneUpdate = true;
+                            needsColorUpdate = true;
+                            appState.addXY(hoverX, hoverY, colorId);
 
-                        //////////////////////
-                        // Picking code
-                        //////////////////////
-
-                        function picking() {
-                            let mouseX = -1;
-                            let mouseY = -1;
-                            let isReading = false;
-                            const pixels = document.querySelector("read-pixels");
-                            const data = new Uint32Array(w * h * 4);
-
-                            let reader = Promise.resolve(data);
-                            const view = new DataView(data.buffer)
-                            document.addEventListener("pointermove", (e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                mouseX = Math.floor(e.offsetX * dpr);
-                                mouseY = h - Math.floor(e.offsetY * dpr);
-                                const arrayPos = mouseY * (w * 16) + (mouseX * 16);
-                                hoverX = view.getInt32(arrayPos, true);
-                                hoverY = view.getInt32(arrayPos + 4, true);
-                            }, { capture: true });
-
-                            document.addEventListener("pointerdown", (e) => {
-                                needsSceneUpdate = true;
-                                needsColorUpdate = true;
-                                appState.addXY(hoverX, hoverY, colorId);
-
-                                // const sceneLinearPos = (instanceScene[0] - hoverX) * (instanceScene[1] - hoverY) * 4;
-                                console.log(`Down(${instanceScene[0] - hoverX}, ${instanceScene[1] - hoverY})`)
-                            })
-
-                            // Get the read pixels:
-                            const p = ShaderCanvas.createProgram((gl, { uniformLocations, ctx }) => {
-                                const panZoomObj = ShaderCanvas.getModuleState("pan-zoom-2d");
-                                // panZoomObj.onActionStart = () => console.log('STARTING PAN/ZOOM');
-                                panZoomObj.onActionEnd = () => {
-                                    pixels?.getPixels(data);
-                                }
-
-                                gl.uniform1f(uniformLocations.get("size"), 16 * dpr);
-                                gl.uniformMatrix4fv(uniformLocations.get("projection"), false,
-                                    ortho(0, gl.canvas.clientWidth, gl.canvas.clientHeight, 0, 0, 1));
-                            });
-                            p.useWith("picking-render")
-                        }
-
-                        picking();
+                            // const sceneLinearPos = (instanceScene[0] - hoverX) * (instanceScene[1] - hoverY) * 4;
+                            console.log(`Down(${instanceScene[0] - hoverX}, ${instanceScene[1] - hoverY})`)
+                        })
                     </script>
                 </infinite-grid>
-                <picking-render>
-                    <pan-zoom-2d></pan-zoom-2d>
-                    <tri-grid></tri-grid>
+
+                <full-screen-quad>
                     <vertex-shader>
                         <code>
                             #version 300 es
-    
+
                             in vec4 position;
-    
-                            uniform float size;
-                            uniform mat4 projection;    
-    
-                            in vec4 instanceScene;
-                            flat out ivec2 pos;
-
-                            vec4 squareGrid() {
-                                vec4 vertex =
-                                    vec4(size, size, 1.0, 1.0)
-                                    * position
-                                    + vec4(instanceScene.xy * vec2(size),
-                                    0.0, 0.0);
-
-                                vec4 transformedVertex = panZoomMatrix * vertex;
-                                vec4 projected = projection * transformedVertex;
-                                return projected;
-                            }
-
+                            in vec2 textureCoords;
+                                                        
+                            out vec2 textureUV;
+                            
                             void main() {
-                                pos = ivec2(int(instanceScene.x),int(instanceScene.y));
-
-                                gl_Position = squareGrid();
+                              gl_Position = position;
+                            
+                              textureUV = textureCoords;
                             }
                         </code>
                     </vertex-shader>
@@ -574,44 +543,69 @@ Licensed under the EUPL -->
                             #version 300 es
 
                             precision highp float;
-
-                            flat in ivec2 pos;
-
-                            out ivec2 rg32;
-
+                            
+                            in vec2 textureUV;
+                            
+                            uniform sampler2D screenTexture;
+                            
+                            out vec4 color;
+                            
                             void main() {
-                                rg32 = pos;
+                                color = texture(screenTexture, textureUV);
                             }
                         </code>
                     </fragment-shader>
-                </picking-render>
+                </full-screen-quad>
             </webgl-programs>
             <draw-calls>
                 <clear-color red="1" green="0" blue="0" alpha="0"></clear-color>
                 <clear-flags mask="COLOR_BUFFER_BIT | DEPTH_BUFFER_BIT"></clear-flags>
                 <draw-loop>
-                    <bind-framebuffer src="position-picker">
+
+                    <bind-framebuffer src="elements-grid">
+                        <draw-buffers buffers=["COLOR_ATTACHMENT0","COLOR_ATTACHMENT1"]></draw-buffers>
                         <viewport-transform x="0" y="0"></viewport-transform>
                         <depth-func func="LEQUAL"></depth-func>
-                        <use-program src="picking-render">
-                            <draw-vao src="quad-vao" mode="TRIANGLE_FAN" count="4" type="UNSIGNED_SHORT"></draw-vao>
+                        <use-program src="infinite-grid">
+                            <uniform-1fv var="isLines" value="0"></uniform-1fv>
+                            <draw-vao src="quad-vao" mode="TRIANGLE_FAN" count="4" type="UNSIGNED_SHORT">
+                            </draw-vao>
+                            <uniform-1fv var="isLines" value="1"></uniform-1fv>
+                            <draw-vao src="quad-vao" mode="LINE_STRIP" count="4" type="UNSIGNED_SHORT">
+                            </draw-vao>
                         </use-program>
+                        <read-buffer src="COLOR_ATTACHMENT1"></read-buffer>
                         <read-pixels dest="position-picker-pack" type="INT" format="RGBA_INTEGER"></read-pixels>
                     </bind-framebuffer>
-                    <viewport-transform x="0" y="0"></viewport-transform>
                     <depth-func func="LEQUAL"></depth-func>
-                    <use-program src="infinite-grid">
-                        <uniform-1fv var="isLines" value="0"></uniform-1fv>
-                        <draw-vao src="quad-vao" mode="TRIANGLE_FAN" count="4" type="UNSIGNED_SHORT">
-                        </draw-vao>
-                        <uniform-1fv var="isLines" value="1"></uniform-1fv>
-                        <draw-vao src="quad-vao" mode="LINE_STRIP" count="4" type="UNSIGNED_SHORT">
-                        </draw-vao>
+                    <viewport-transform x="0" y="0"></viewport-transform>
+                    <use-program src="full-screen-quad">
+                        <active-texture var="screenTexture" src="color-texture-target"></active-texture>
+                        <draw-vao src="screen-vao" count="6"></draw-vao>
                     </use-program>
                 </draw-loop>
             </draw-calls>
         </webgl-canvas>
     </shader-canvas>
+    <!-- <draw-buffers buffers=["COLOR_ATTACHMENT0","COLOR_ATTACHMENT1"]></draw-buffers> -->
+
+    <div id="screen" style="display: none">[
+        -1.0, 1.0, 0.5,
+        1.0, 1.0, 0.5,
+        -1.0, -1.0, 0.5,
+        -1.0, -1.0, 0.5,
+        1.0, 1.0, 0.5,
+        1.0, -1.0, 0.5
+        ]</div>
+    <div id="screenTextureCoords" style="display: none">
+        [
+        0.0, 1.0,
+        1.0, 1.0,
+        0.0, 0.0,
+        0.0, 0.0,
+        1.0, 1.0,
+        1.0, 0.0]
+    </div>
     <!-- for squares 
 -->
     <div id="elements" style="display: none">
@@ -619,10 +613,10 @@ Licensed under the EUPL -->
     </div>
     <div id="points" style="display: none">
         [
-        0.0, 0.0, 0.5, 1.0,
-        1.0, 0.0, 0.5, 1.0,
-        1.0, 1.0, 0.5, 1.0,
-        0.0, 1.0, 0.5, 1.0]
+        0.0, 0.0, 0.0, 1.0,
+        1.0, 0.0, 0.0, 1.0,
+        1.0, 1.0, 0.0, 1.0,
+        0.0, 1.0, 0.0, 1.0]
     </div>
     <!-- For triangles use these points and adjust the instance count:
     <div id="points" style="display: none">
@@ -634,6 +628,7 @@ Licensed under the EUPL -->
     <div id="elements" style="display: none">
         [ 0, 1, 2, 0 ]
     </div>
+    <img id="textureImg" src="f-texture.png">
     -->
 
     <script type="module">

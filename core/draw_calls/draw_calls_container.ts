@@ -17,6 +17,7 @@ import { CanMerge } from "../new_modules/can_merge.ts";
 import { DrawBuffers } from "./draw_buffers.ts";
 import { ReadPixels } from "./read_pixels.ts";
 import { BindFramebuffer } from "./bind_framebuffer.ts";
+import { ReadBuffer } from "./read_buffer.ts";
 import { glError } from "../common/errors.ts";
 import {
   SetUniform1fv,
@@ -56,6 +57,7 @@ export const dependencies = [
   SetUniform4fv,
   DrawBuffers,
   ReadPixels,
+  ReadBuffer,
 ];
 
 /**
@@ -141,6 +143,9 @@ export class DrawCallsContainer extends CanMerge {
       } else if (child instanceof ViewportTransformation) {
         child.initialize(gl);
         this.drawFunctions.push(child.viewport);
+      } else if (child instanceof ReadBuffer) {
+        child.initialize(gl);
+        this.drawFunctions.push(child.readBuffer);
       } else if (child instanceof ReadPixels) {
         child.initialize(gl, context.buffers);
         this.drawFunctions.push(child.readPixels);

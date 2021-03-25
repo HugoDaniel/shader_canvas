@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- New main section `<webgl-framebuffers>`
+- New tags related to framebuffers:
+  `<bind-framebuffer>`, `<renderbuffer-storage>`, `<framebuffer-texture-2d>`,
+  `<framebuffer-texture-layer>`, `<framebuffer-renderbuffer>`, `<draw-buffers>`
+- Extra debug information when the WebGL Context cannot be created.
+- New tag to read pixels: `<read-pixels>` 
+- Add support for WebGLSync and fences in the `<draw-calls>` container
+- Add support for color float textures
+- `<read-buffer>` performs a similar operation to gl.readBuffer().
+- New example (6-infinite-grid) that shows how to use multiple-render-targets,
+  render-to-texture, readPixels, sync fences and pixel buffer objects.
+
+### Changed
+- If `<vertex-attrib-pointer>` uses `vertexAttribIPointer` if it has an integer
+  type string
+
+
 ## [1.1.1] - 2021-03-15
 
 ### Added
