@@ -22,8 +22,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   render-to-texture, readPixels, sync fences and pixel buffer objects.
 
 ### Changed
+
 - If `<vertex-attrib-pointer>` uses `vertexAttribIPointer` if it has an integer
   type string
+
+### Fixed
+
+- Modules are no longer created if they are not being used. This caused an
+  unexpected error to be thrown.
 
 
 ## [1.1.1] - 2021-03-15
