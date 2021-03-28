@@ -25,6 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - If `<vertex-attrib-pointer>` uses `vertexAttribIPointer` if it has an integer
   type string
+- ModulesFunctions `getState` now returns `unknown` instead of
+  `Record<string, unknown>` 
 
 ### Fixed
 

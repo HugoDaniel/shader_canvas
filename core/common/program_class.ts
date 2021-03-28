@@ -12,8 +12,9 @@ export interface ModulesFunctions {
     programName: string,
   ) => void;
   initializer?: InitializerFunction;
-  getState?: () => Record<string, unknown>;
+  getState: () => unknown;
 }
+
 export interface ShaderPart {
   useWith: (name: string) => void;
   createPart: (payload: Payload) => ModulesFunctions | void;
