@@ -414,18 +414,15 @@ export class ShaderCanvas extends CanHaveModules {
       modules = globalThis.document.createElement(NewModules.tag);
       this.root.appendChild(modules);
     }
-    if (!modules) {
-      throw new Error("Unable to create placeholder <new-modules> tag");
-    }
-    // Place modules content
-    for (const moduleContent of loadedModules) {
-      modules.insertAdjacentHTML("afterbegin", moduleContent);
-    }
     // Payloads represent the intermediate state of a module. It holds the
     // module contents and how to fill them with the information that might
     // be provided through the attributes of the main module tag.
     let payloads: Payload[] = [];
     if (modules && modules instanceof NewModules) {
+      // Place modules content
+      for (const moduleContent of loadedModules) {
+        modules.insertAdjacentHTML("afterbegin", moduleContent);
+      }
       // Pass down the modules function initializers set through the API
       // Each module creation function is responsible to return the module
       // Payload (the blueprint of nodes ready to be connected to the module
