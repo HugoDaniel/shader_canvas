@@ -20,6 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `<read-buffer>` performs a similar operation to gl.readBuffer().
 - New example (6-infinite-grid) that shows how to use multiple-render-targets,
   render-to-texture, readPixels, sync fences and pixel buffer objects.
+- Support for WebGL context flags, specifically the
+  `powerPreference: "high-performance"` that can allow higher performance in
+  macOS.
 
 ### Changed
 

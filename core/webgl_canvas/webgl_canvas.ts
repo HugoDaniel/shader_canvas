@@ -9,7 +9,10 @@ import { WebGLVertexArrayObjects } from "../webgl_vertex_array_objects/webgl_ver
 import { WebGLTextures } from "../webgl_textures/webgl_textures.ts";
 import { DrawCalls } from "../draw_calls/draw_calls.ts";
 import { nop } from "../common/nop.ts";
-import { ShaderCanvasInitializer } from "../shader_canvas/initializer.ts";
+import {
+  ShaderCanvasInitializer,
+  WebGLContextFlags,
+} from "../shader_canvas/initializer.ts";
 
 /**
  * WebGLCanvas largely ignores the common Web Components creation methods. 
@@ -182,6 +185,7 @@ export class WebGLCanvas extends globalThis.HTMLElement {
       programInitializers,
       modulesFunctions,
       bufferInitializers,
+      flags,
     } = init;
     // Only proceed if every needed tag is registered
     await this.whenLoaded;
@@ -222,7 +226,7 @@ export class WebGLCanvas extends globalThis.HTMLElement {
     );
 
     // Set the WebGL2 context to the "gl" attribute.
-    this.gl = this.initializeGL();
+    this.gl = this.initializeGL(flags);
 
     // Create the context object, it holds the nodes of the containers that
     // <webgl-canvas> needs to have in order to properly run.
@@ -309,7 +313,7 @@ export class WebGLCanvas extends globalThis.HTMLElement {
    */
   private createContext(
     gl: WebGL2RenderingContext,
-    { payloads, modulesFunctions }: ShaderCanvasInitializer,
+    { payloads, modulesFunctions, flags }: ShaderCanvasInitializer,
   ): () => (WebGLCanvasContext | null) {
     // Read children and create tags that are missing
     let buffers = this.querySelector(WebGLBuffers.tag);
@@ -446,14 +450,20 @@ export class WebGLCanvas extends globalThis.HTMLElement {
    * Get a "webgl2" context from the canvas element set at "this.canvas".
    * This will throw an exception if there is no such context returned. 
    */
-  private initializeGL() {
-    const ctx = this.canvas.getContext("webgl2", {
+  private initializeGL(flags?: WebGLContextFlags) {
+    const f = flags || {
       desynchronized: true,
-    });
+    };
+    console.log("FLAGS", f, flags);
+    const ctx: WebGL2RenderingContext | null = this.canvas.getContext(
+      "webgl2",
+      f,
+    ) as WebGL2RenderingContext | null;
     if (
       !ctx ||
       typeof (ctx as WebGL2RenderingContext).getContextAttributes !==
-        "function"
+        "function" ||
+      !(ctx instanceof WebGL2RenderingContext)
     ) {
       throw new Error("No WebGL 2.0 support");
     }

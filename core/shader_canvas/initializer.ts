@@ -7,6 +7,11 @@ import type {
 } from "../common/program_class.ts";
 import { Payload } from "../new_modules/payload.ts";
 
+export interface WebGLContextFlags {
+  failIfMajorPerformanceCaveat: boolean;
+  powerPreference: "default" | "high-performance" | "low-power";
+  desynchronized: boolean;
+}
 export interface ShaderCanvasInitializer {
   width: number;
   height: number;
@@ -14,4 +19,7 @@ export interface ShaderCanvasInitializer {
   bufferInitializers: InitializeBufferFunction[];
   payloads: Payload[];
   modulesFunctions: Map<string, ModulesFunctions>;
+  flags:
+    | WebGLContextFlags
+    | undefined;
 }

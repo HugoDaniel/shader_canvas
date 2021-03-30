@@ -24,6 +24,7 @@ import { NewModules } from "./core/new_modules/new_modules.ts";
 import { Payload } from "./core/new_modules/payload.ts";
 import { CanHaveModules } from "./core/new_modules/create_module.ts";
 import { ImportModule } from "./core/new_modules/import_module.ts";
+import { WebGLContextFlags } from "./core/shader_canvas/initializer.ts";
 
 /**
  * Shader Canvas uses a very simple life-cycle for its components.
@@ -360,7 +361,9 @@ export class ShaderCanvas extends CanHaveModules {
    * back-end.
    */
   draw: () => void = nop;
-  async initialize() {
+  async initialize(options?: {
+    webglContextFlags: WebGLContextFlags;
+  }) {
     // Only proceed when every needed tag is registered
     await this.whenLoaded;
     // Check if there is a webgl-canvas child, if not, create one in the
@@ -482,6 +485,7 @@ export class ShaderCanvas extends CanHaveModules {
         programInitializers: ShaderCanvas.programInitializers,
         bufferInitializers: ShaderCanvas.bufferInitializers,
         modulesFunctions: ShaderCanvas.modulesFunctions,
+        flags: options?.webglContextFlags,
       });
       // The ShaderCanvas draw function is just a reference to the webgl draw
       // function. This draw function must be called in order for ShaderCanvas
