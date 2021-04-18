@@ -60,7 +60,7 @@ export class BindFramebuffer extends DrawCallsContainer {
     this.gl = gl;
   }
 
-  gl: WebGL2RenderingContext | undefined;
+  declare gl: WebGL2RenderingContext | undefined;
 }
 
 // Register the tags that this class depends on.

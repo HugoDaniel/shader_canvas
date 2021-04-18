@@ -130,7 +130,7 @@ export class DrawLoop extends DrawCallsContainer {
     }
     this.gl = gl;
   }
-  gl: WebGL2RenderingContext | undefined;
+  declare gl: WebGL2RenderingContext | undefined;
 
   /**
    * Sets the number of Frames Per Second (FPS) that the loop should run.
