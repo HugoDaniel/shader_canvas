@@ -39,3 +39,4 @@ TODO
 .env_sandbox
 .env_production
 SALES
+copy.sh
