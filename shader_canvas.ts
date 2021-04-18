@@ -595,3 +595,6 @@ export class ShaderCanvas extends CanHaveModules {
     globalThis.customElements.define(component.tag, component);
   }
 });
+
+export { DrawCalls, DrawLoop }
+
