@@ -22,6 +22,7 @@ export class ReadPixels extends globalThis.HTMLElement {
   get width(): number {
     return Number(this.getAttribute("width"));
   }
+
   /**
    * The height of the pixels to read. Defaults to canvas size.
    */
