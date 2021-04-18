@@ -22,3 +22,5 @@ stop:
 
 build/shader_canvas.min.js: build/shader_canvas.js
 	terser $< -o $@ -c
+
+all: clean build/shader_canvas.min.js docs/documentation.md
